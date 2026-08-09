@@ -4,48 +4,76 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 
+type BookingData = {
+  user_id: string;
+  sender_name: string;
+  receiver_name: string;
+  pickup_address: string;
+  delivery_address: string;
+  phone_number: string;
+  package_type: string;
+  package_description: string;
+  package_weight: number;
+  package_quantity: number;
+  package_value: number | null;
+  special_handling: string | null;
+  tracking_number: string;
+  status: string;
+  current_location: string;
+  estimated_delivery: string;
+  last_updated: string;
+};
+
 export default function BookPage() {
   const router = useRouter();
 
-  const [senderName, setSenderName] = useState("");
-  const [receiverName, setReceiverName] = useState("");
-  const [pickup, setPickup] = useState("");
-  const [destination, setDestination] = useState("");
-  const [phoneNumber, setPhoneNumber] = useState("");
+  const [senderName, setSenderName] = useState<string>("");
+  const [receiverName, setReceiverName] = useState<string>("");
+  const [pickup, setPickup] = useState<string>("");
+  const [destination, setDestination] = useState<string>("");
+  const [phoneNumber, setPhoneNumber] = useState<string>("");
 
-  const [packageType, setPackageType] = useState("");
-  const [packageDescription, setPackageDescription] = useState("");
-  const [packageWeight, setPackageWeight] = useState("");
-  const [packageQuantity, setPackageQuantity] = useState("1");
-  const [packageValue, setPackageValue] = useState("");
-  const [specialHandling, setSpecialHandling] = useState("");
+  const [packageType, setPackageType] = useState<string>("");
+  const [packageDescription, setPackageDescription] =
+    useState<string>("");
+  const [packageWeight, setPackageWeight] =
+    useState<string>("");
+  const [packageQuantity, setPackageQuantity] =
+    useState<string>("1");
+  const [packageValue, setPackageValue] =
+    useState<string>("");
+  const [specialHandling, setSpecialHandling] =
+    useState<string>("");
 
-  const [loading, setLoading] = useState(false);
-  const [checkingAuth, setCheckingAuth] = useState(true);
-  const [userEmail, setUserEmail] = useState("");
+  const [loading, setLoading] = useState<boolean>(false);
+  const [checkingAuth, setCheckingAuth] =
+    useState<boolean>(true);
+  const [userEmail, setUserEmail] =
+    useState<string>("");
 
   useEffect(() => {
-    checkUser();
+    void checkUser();
   }, []);
 
-  async function checkUser() {
+  async function checkUser(): Promise<void> {
     const {
       data: { session },
+      error,
     } = await supabase.auth.getSession();
 
-    if (!session) {
+    if (error || !session) {
       router.push("/login");
       return;
     }
 
-    setUserEmail(session.user.email || "");
+    setUserEmail(session.user.email ?? "");
     setCheckingAuth(false);
   }
 
   async function handleBooking(
-    e: React.FormEvent<HTMLFormElement>
-  ) {
-    e.preventDefault();
+    event: React.FormEvent<HTMLFormElement>
+  ): Promise<void> {
+    event.preventDefault();
 
     if (!senderName.trim()) {
       alert("Please enter the sender name.");
@@ -87,13 +115,33 @@ export default function BookPage() {
       return;
     }
 
-    if (Number(packageWeight) <= 0) {
+    const weight = Number(packageWeight);
+    const quantity = Number(packageQuantity);
+    const value =
+      packageValue.trim() === ""
+        ? null
+        : Number(packageValue);
+
+    if (!Number.isFinite(weight) || weight <= 0) {
       alert("Package weight must be greater than 0.");
       return;
     }
 
-    if (Number(packageQuantity) < 1) {
-      alert("Number of packages must be at least 1.");
+    if (
+      !Number.isInteger(quantity) ||
+      quantity < 1
+    ) {
+      alert(
+        "Number of packages must be at least 1."
+      );
+      return;
+    }
+
+    if (
+      value !== null &&
+      (!Number.isFinite(value) || value < 0)
+    ) {
+      alert("Please enter a valid package value.");
       return;
     }
 
@@ -113,11 +161,11 @@ export default function BookPage() {
       return;
     }
 
-    const userId = session.user.id;
-
     const trackingNumber =
       "TRK" +
-      Math.floor(100000 + Math.random() * 900000);
+      Math.floor(
+        100000 + Math.random() * 900000
+      );
 
     const estimatedDelivery = new Date();
 
@@ -126,78 +174,74 @@ export default function BookPage() {
     );
 
     const estimatedDeliveryDate =
-      estimatedDelivery.toISOString().split("T")[0];
+      estimatedDelivery
+        .toISOString()
+        .split("T")[0];
+
+    const booking: BookingData = {
+      user_id: session.user.id,
+
+      sender_name: senderName.trim(),
+      receiver_name: receiverName.trim(),
+
+      pickup_address: pickup.trim(),
+      delivery_address: destination.trim(),
+
+      phone_number: phoneNumber.trim(),
+
+      package_type: packageType,
+      package_description:
+        packageDescription.trim(),
+      package_weight: weight,
+      package_quantity: quantity,
+      package_value: value,
+      special_handling:
+        specialHandling.trim() || null,
+
+      tracking_number: trackingNumber,
+
+      status: "Pending",
+
+      current_location: "Origin Warehouse",
+
+      estimated_delivery:
+        estimatedDeliveryDate,
+
+      last_updated:
+        new Date().toISOString(),
+    };
 
     const { data, error } = await supabase
       .from("bookings")
-      .insert([
-        {
-          user_id: userId,
-
-          sender_name: senderName.trim(),
-          receiver_name: receiverName.trim(),
-
-          pickup_address: pickup.trim(),
-          delivery_address: destination.trim(),
-
-          phone_number: phoneNumber.trim(),
-
-          package_type: packageType,
-          package_description: packageDescription.trim(),
-          package_weight: Number(packageWeight),
-          package_quantity: Number(packageQuantity),
-          package_value: packageValue
-            ? Number(packageValue)
-            : null,
-          special_handling:
-            specialHandling.trim() || null,
-
-          tracking_number: trackingNumber,
-
-          status: "Pending",
-
-          current_location: "Origin Warehouse",
-
-          estimated_delivery:
-            estimatedDeliveryDate,
-
-          last_updated: new Date().toISOString(),
-        },
-      ])
+      .insert([booking])
       .select()
       .single();
 
     setLoading(false);
 
     if (error) {
-      console.error("BOOKING ERROR:", error);
+      console.error(
+        "BOOKING ERROR:",
+        error
+      );
 
       alert(
-        "Booking failed:\n\n" + error.message
+        "Booking failed:\n\n" +
+          error.message
       );
 
       return;
     }
 
-    console.log("BOOKING CREATED:", data);
+    console.log(
+      "BOOKING CREATED:",
+      data
+    );
 
     sessionStorage.setItem(
       "latestBooking",
       JSON.stringify(data)
     );
-
-    setSenderName("");
-    setReceiverName("");
-    setPickup("");
-    setDestination("");
-    setPhoneNumber("");
-
-    setPackageType("");
-    setPackageDescription("");
-    setPackageWeight("");
-    setPackageQuantity("1");
-    setPackageValue("");
-    setSpecialHandling("");
 
     router.push("/booking-success");
   }
@@ -217,7 +261,7 @@ export default function BookPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-100">
+    <main className="min-h-screen bg-slate-100 text-slate-900">
       <section className="bg-blue-950 text-white">
         <div className="max-w-5xl mx-auto px-6 py-16">
           <p className="text-orange-400 font-black uppercase tracking-widest text-sm">
@@ -229,7 +273,7 @@ export default function BookPage() {
           </h1>
 
           <p className="text-blue-200 mt-4 text-lg">
-            Create a shipment and we'll give you a
+            Create a shipment and receive your
             tracking number immediately.
           </p>
 
@@ -257,17 +301,27 @@ export default function BookPage() {
               Shipment Information
             </p>
 
-            <h2 className="text-3xl font-black mt-2 text-slate-900">
+            <h2 className="text-3xl font-black mt-2">
               Tell us about your delivery
             </h2>
 
             <p className="text-slate-500 mt-2">
-              Enter the sender, receiver, route, and
-              package information below.
+              Enter the sender, receiver, route,
+              and package information.
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-6">
+          <div>
+            <p className="text-orange-500 font-black uppercase tracking-wider text-sm">
+              Contact Information
+            </p>
+
+            <h3 className="text-2xl font-black mt-2">
+              Sender and Receiver
+            </h3>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-6 mt-6">
             <div>
               <label className="block text-sm font-black text-slate-700 mb-2">
                 Sender Name
@@ -275,12 +329,14 @@ export default function BookPage() {
 
               <input
                 type="text"
-                placeholder="Enter sender name"
                 value={senderName}
-                onChange={(e) =>
-                  setSenderName(e.target.value)
+                onChange={(event) =>
+                  setSenderName(
+                    event.target.value
+                  )
                 }
-                className="w-full border-2 border-slate-200 rounded-xl p-4 text-slate-900 focus:outline-none focus:border-orange-500 transition"
+                placeholder="Enter sender name"
+                className="w-full border-2 border-slate-200 rounded-xl p-4 text-slate-900 focus:outline-none focus:border-orange-500"
               />
             </div>
 
@@ -291,90 +347,99 @@ export default function BookPage() {
 
               <input
                 type="text"
-                placeholder="Enter receiver name"
                 value={receiverName}
-                onChange={(e) =>
-                  setReceiverName(e.target.value)
+                onChange={(event) =>
+                  setReceiverName(
+                    event.target.value
+                  )
                 }
-                className="w-full border-2 border-slate-200 rounded-xl p-4 text-slate-900 focus:outline-none focus:border-orange-500 transition"
+                placeholder="Enter receiver name"
+                className="w-full border-2 border-slate-200 rounded-xl p-4 text-slate-900 focus:outline-none focus:border-orange-500"
               />
             </div>
 
-            <div>
+            <div className="md:col-span-2">
               <label className="block text-sm font-black text-slate-700 mb-2">
                 Contact Phone Number
               </label>
 
               <input
                 type="tel"
-                placeholder="Enter contact phone number"
                 value={phoneNumber}
-                onChange={(e) =>
-                  setPhoneNumber(e.target.value)
+                onChange={(event) =>
+                  setPhoneNumber(
+                    event.target.value
+                  )
                 }
-                className="w-full border-2 border-slate-200 rounded-xl p-4 text-slate-900 focus:outline-none focus:border-orange-500 transition"
+                placeholder="Enter contact phone number"
+                className="w-full border-2 border-slate-200 rounded-xl p-4 text-slate-900 focus:outline-none focus:border-orange-500"
               />
             </div>
           </div>
 
-          <div className="mt-10">
+          <div className="mt-12 pt-10 border-t border-slate-200">
             <p className="text-orange-500 font-black uppercase tracking-wider text-sm">
               Route Information
             </p>
 
-            <h3 className="text-2xl font-black text-slate-900 mt-2">
+            <h3 className="text-2xl font-black mt-2">
               Where is the package going?
             </h3>
+
+            <div className="grid md:grid-cols-2 gap-6 mt-6">
+              <div>
+                <label className="block text-sm font-black text-slate-700 mb-2">
+                  Pickup Address
+                </label>
+
+                <textarea
+                  rows={3}
+                  value={pickup}
+                  onChange={(event) =>
+                    setPickup(
+                      event.target.value
+                    )
+                  }
+                  placeholder="Where should we collect the package?"
+                  className="w-full border-2 border-slate-200 rounded-xl p-4 text-slate-900 resize-none focus:outline-none focus:border-orange-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-black text-slate-700 mb-2">
+                  Delivery Address
+                </label>
+
+                <textarea
+                  rows={3}
+                  value={destination}
+                  onChange={(event) =>
+                    setDestination(
+                      event.target.value
+                    )
+                  }
+                  placeholder="Where should we deliver it?"
+                  className="w-full border-2 border-slate-200 rounded-xl p-4 text-slate-900 resize-none focus:outline-none focus:border-orange-500"
+                />
+              </div>
+            </div>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-6 mt-6">
-            <div>
-              <label className="block text-sm font-black text-slate-700 mb-2">
-                Pickup Address
-              </label>
+          <div className="mt-12 pt-10 border-t border-slate-200">
+            <div className="bg-orange-50 border border-orange-200 rounded-2xl p-6">
+              <p className="text-orange-600 font-black uppercase tracking-wider text-sm">
+                Package Information
+              </p>
 
-              <input
-                type="text"
-                placeholder="Where should we collect the package?"
-                value={pickup}
-                onChange={(e) =>
-                  setPickup(e.target.value)
-                }
-                className="w-full border-2 border-slate-200 rounded-xl p-4 text-slate-900 focus:outline-none focus:border-orange-500 transition"
-              />
+              <h3 className="text-2xl font-black mt-2">
+                Tell us what you are shipping
+              </h3>
+
+              <p className="text-slate-600 mt-2">
+                Provide accurate information about
+                the package.
+              </p>
             </div>
-
-            <div>
-              <label className="block text-sm font-black text-slate-700 mb-2">
-                Delivery Address
-              </label>
-
-              <input
-                type="text"
-                placeholder="Where should we deliver it?"
-                value={destination}
-                onChange={(e) =>
-                  setDestination(e.target.value)
-                }
-                className="w-full border-2 border-slate-200 rounded-xl p-4 text-slate-900 focus:outline-none focus:border-orange-500 transition"
-              />
-            </div>
-          </div>
-
-          <div className="mt-10 pt-10 border-t border-slate-200">
-            <p className="text-orange-500 font-black uppercase tracking-wider text-sm">
-              Package Information
-            </p>
-
-            <h3 className="text-2xl font-black text-slate-900 mt-2">
-              Tell us what you are shipping
-            </h3>
-
-            <p className="text-slate-500 mt-2">
-              Provide accurate package information so
-              Atlas Express can process the shipment
-              correctly.
-            </p>
 
             <div className="grid md:grid-cols-2 gap-6 mt-6">
               <div>
@@ -384,35 +449,45 @@ export default function BookPage() {
 
                 <select
                   value={packageType}
-                  onChange={(e) =>
-                    setPackageType(e.target.value)
+                  onChange={(event) =>
+                    setPackageType(
+                      event.target.value
+                    )
                   }
-                  className="w-full border-2 border-slate-200 rounded-xl p-4 text-slate-900 bg-white focus:outline-none focus:border-orange-500 transition"
+                  className="w-full border-2 border-slate-200 rounded-xl p-4 bg-white text-slate-900 focus:outline-none focus:border-orange-500"
                 >
                   <option value="">
                     Select package type
                   </option>
+
                   <option value="Document">
                     Document
                   </option>
-                  <option value="Box">
-                    Box
-                  </option>
-                  <option value="Parcel">
-                    Parcel
-                  </option>
+
                   <option value="Envelope">
                     Envelope
                   </option>
+
+                  <option value="Box">
+                    Box
+                  </option>
+
+                  <option value="Parcel">
+                    Parcel
+                  </option>
+
                   <option value="Electronics">
                     Electronics
                   </option>
+
                   <option value="Clothing">
                     Clothing
                   </option>
+
                   <option value="Fragile Item">
                     Fragile Item
                   </option>
+
                   <option value="Other">
                     Other
                   </option>
@@ -428,10 +503,12 @@ export default function BookPage() {
                   type="number"
                   min="1"
                   value={packageQuantity}
-                  onChange={(e) =>
-                    setPackageQuantity(e.target.value)
+                  onChange={(event) =>
+                    setPackageQuantity(
+                      event.target.value
+                    )
                   }
-                  className="w-full border-2 border-slate-200 rounded-xl p-4 text-slate-900 focus:outline-none focus:border-orange-500 transition"
+                  className="w-full border-2 border-slate-200 rounded-xl p-4 text-slate-900 focus:outline-none focus:border-orange-500"
                 />
               </div>
 
@@ -444,12 +521,14 @@ export default function BookPage() {
                   type="number"
                   min="0.1"
                   step="0.1"
-                  placeholder="Example: 2.5"
                   value={packageWeight}
-                  onChange={(e) =>
-                    setPackageWeight(e.target.value)
+                  onChange={(event) =>
+                    setPackageWeight(
+                      event.target.value
+                    )
                   }
-                  className="w-full border-2 border-slate-200 rounded-xl p-4 text-slate-900 focus:outline-none focus:border-orange-500 transition"
+                  placeholder="Example: 2.5"
+                  className="w-full border-2 border-slate-200 rounded-xl p-4 text-slate-900 focus:outline-none focus:border-orange-500"
                 />
               </div>
 
@@ -462,12 +541,14 @@ export default function BookPage() {
                   type="number"
                   min="0"
                   step="0.01"
-                  placeholder="Example: 250"
                   value={packageValue}
-                  onChange={(e) =>
-                    setPackageValue(e.target.value)
+                  onChange={(event) =>
+                    setPackageValue(
+                      event.target.value
+                    )
                   }
-                  className="w-full border-2 border-slate-200 rounded-xl p-4 text-slate-900 focus:outline-none focus:border-orange-500 transition"
+                  placeholder="Example: 250"
+                  className="w-full border-2 border-slate-200 rounded-xl p-4 text-slate-900 focus:outline-none focus:border-orange-500"
                 />
               </div>
             </div>
@@ -479,12 +560,14 @@ export default function BookPage() {
 
               <textarea
                 rows={4}
-                placeholder="Describe what is inside the package..."
                 value={packageDescription}
-                onChange={(e) =>
-                  setPackageDescription(e.target.value)
+                onChange={(event) =>
+                  setPackageDescription(
+                    event.target.value
+                  )
                 }
-                className="w-full border-2 border-slate-200 rounded-xl p-4 text-slate-900 resize-none focus:outline-none focus:border-orange-500 transition"
+                placeholder="Describe what is inside the package..."
+                className="w-full border-2 border-slate-200 rounded-xl p-4 text-slate-900 resize-none focus:outline-none focus:border-orange-500"
               />
             </div>
 
@@ -495,19 +578,22 @@ export default function BookPage() {
 
               <textarea
                 rows={3}
-                placeholder="Example: Keep upright, handle with care, etc."
                 value={specialHandling}
-                onChange={(e) =>
-                  setSpecialHandling(e.target.value)
+                onChange={(event) =>
+                  setSpecialHandling(
+                    event.target.value
+                  )
                 }
-                className="w-full border-2 border-slate-200 rounded-xl p-4 text-slate-900 resize-none focus:outline-none focus:border-orange-500 transition"
+                placeholder="Example: Handle with care..."
+                className="w-full border-2 border-slate-200 rounded-xl p-4 text-slate-900 resize-none focus:outline-none focus:border-orange-500"
               />
             </div>
           </div>
 
           <div className="mt-8 bg-blue-50 border border-blue-100 rounded-2xl p-5">
             <p className="font-black text-blue-900">
-              🔒 Your shipment belongs to your account
+              🔒 Your shipment belongs to your
+              account
             </p>
 
             <p className="text-sm text-blue-700 mt-1">
