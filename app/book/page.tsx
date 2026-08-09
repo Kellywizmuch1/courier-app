@@ -1,4 +1,3 @@
-```tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -14,7 +13,6 @@ export default function BookPage() {
   const [destination, setDestination] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
 
-  // Package information
   const [packageType, setPackageType] = useState("");
   const [packageDescription, setPackageDescription] = useState("");
   const [packageWeight, setPackageWeight] = useState("");
@@ -44,7 +42,9 @@ export default function BookPage() {
     setCheckingAuth(false);
   }
 
-  async function handleBooking(e: React.FormEvent<HTMLFormElement>) {
+  async function handleBooking(
+    e: React.FormEvent<HTMLFormElement>
+  ) {
     e.preventDefault();
 
     if (!senderName.trim()) {
@@ -87,6 +87,16 @@ export default function BookPage() {
       return;
     }
 
+    if (Number(packageWeight) <= 0) {
+      alert("Package weight must be greater than 0.");
+      return;
+    }
+
+    if (Number(packageQuantity) < 1) {
+      alert("Number of packages must be at least 1.");
+      return;
+    }
+
     setLoading(true);
 
     const {
@@ -96,29 +106,28 @@ export default function BookPage() {
 
     if (sessionError || !session) {
       setLoading(false);
-      alert("Your session has expired. Please log in again.");
+      alert(
+        "Your session has expired. Please log in again."
+      );
       router.push("/login");
       return;
     }
 
     const userId = session.user.id;
 
-    // Generate tracking number
     const trackingNumber =
-      "TRK" + Math.floor(100000 + Math.random() * 900000);
+      "TRK" +
+      Math.floor(100000 + Math.random() * 900000);
 
-    // Estimated delivery = 7 days from today
     const estimatedDelivery = new Date();
 
     estimatedDelivery.setDate(
       estimatedDelivery.getDate() + 7
     );
 
-    const estimatedDeliveryDate = estimatedDelivery
-      .toISOString()
-      .split("T")[0];
+    const estimatedDeliveryDate =
+      estimatedDelivery.toISOString().split("T")[0];
 
-    // Create booking
     const { data, error } = await supabase
       .from("bookings")
       .insert([
@@ -133,7 +142,6 @@ export default function BookPage() {
 
           phone_number: phoneNumber.trim(),
 
-          // Package information
           package_type: packageType,
           package_description: packageDescription.trim(),
           package_weight: Number(packageWeight),
@@ -141,7 +149,8 @@ export default function BookPage() {
           package_value: packageValue
             ? Number(packageValue)
             : null,
-          special_handling: specialHandling.trim() || null,
+          special_handling:
+            specialHandling.trim() || null,
 
           tracking_number: trackingNumber,
 
@@ -149,7 +158,8 @@ export default function BookPage() {
 
           current_location: "Origin Warehouse",
 
-          estimated_delivery: estimatedDeliveryDate,
+          estimated_delivery:
+            estimatedDeliveryDate,
 
           last_updated: new Date().toISOString(),
         },
@@ -171,13 +181,11 @@ export default function BookPage() {
 
     console.log("BOOKING CREATED:", data);
 
-    // Save booking for confirmation page
     sessionStorage.setItem(
       "latestBooking",
       JSON.stringify(data)
     );
 
-    // Clear form
     setSenderName("");
     setReceiverName("");
     setPickup("");
@@ -191,7 +199,6 @@ export default function BookPage() {
     setPackageValue("");
     setSpecialHandling("");
 
-    // Go to confirmation page
     router.push("/booking-success");
   }
 
@@ -211,7 +218,6 @@ export default function BookPage() {
 
   return (
     <main className="min-h-screen bg-slate-100">
-      {/* HEADER */}
       <section className="bg-blue-950 text-white">
         <div className="max-w-5xl mx-auto px-6 py-16">
           <p className="text-orange-400 font-black uppercase tracking-widest text-sm">
@@ -241,13 +247,11 @@ export default function BookPage() {
         </div>
       </section>
 
-      {/* FORM */}
       <section className="max-w-5xl mx-auto px-6 py-12">
         <form
           onSubmit={handleBooking}
           className="bg-white rounded-3xl shadow-xl border border-slate-200 p-8 md:p-10"
         >
-          {/* INTRO */}
           <div className="mb-10">
             <p className="text-orange-500 font-black uppercase tracking-wider text-sm">
               Shipment Information
@@ -258,14 +262,12 @@ export default function BookPage() {
             </h2>
 
             <p className="text-slate-500 mt-2">
-              Enter the sender, receiver, and package
-              information below.
+              Enter the sender, receiver, route, and
+              package information below.
             </p>
           </div>
 
-          {/* PEOPLE */}
           <div className="grid md:grid-cols-2 gap-6">
-            {/* SENDER */}
             <div>
               <label className="block text-sm font-black text-slate-700 mb-2">
                 Sender Name
@@ -282,7 +284,6 @@ export default function BookPage() {
               />
             </div>
 
-            {/* RECEIVER */}
             <div>
               <label className="block text-sm font-black text-slate-700 mb-2">
                 Receiver Name
@@ -299,7 +300,6 @@ export default function BookPage() {
               />
             </div>
 
-            {/* PHONE */}
             <div>
               <label className="block text-sm font-black text-slate-700 mb-2">
                 Contact Phone Number
@@ -317,8 +317,7 @@ export default function BookPage() {
             </div>
           </div>
 
-          {/* ADDRESSES */}
-          <div className="mt-8">
+          <div className="mt-10">
             <p className="text-orange-500 font-black uppercase tracking-wider text-sm">
               Route Information
             </p>
@@ -329,7 +328,6 @@ export default function BookPage() {
           </div>
 
           <div className="grid md:grid-cols-2 gap-6 mt-6">
-            {/* PICKUP */}
             <div>
               <label className="block text-sm font-black text-slate-700 mb-2">
                 Pickup Address
@@ -346,7 +344,6 @@ export default function BookPage() {
               />
             </div>
 
-            {/* DESTINATION */}
             <div>
               <label className="block text-sm font-black text-slate-700 mb-2">
                 Delivery Address
@@ -364,7 +361,6 @@ export default function BookPage() {
             </div>
           </div>
 
-          {/* PACKAGE INFORMATION */}
           <div className="mt-10 pt-10 border-t border-slate-200">
             <p className="text-orange-500 font-black uppercase tracking-wider text-sm">
               Package Information
@@ -375,12 +371,12 @@ export default function BookPage() {
             </h3>
 
             <p className="text-slate-500 mt-2">
-              This information helps us properly handle
-              and process the shipment.
+              Provide accurate package information so
+              Atlas Express can process the shipment
+              correctly.
             </p>
 
             <div className="grid md:grid-cols-2 gap-6 mt-6">
-              {/* PACKAGE TYPE */}
               <div>
                 <label className="block text-sm font-black text-slate-700 mb-2">
                   Package Type
@@ -423,7 +419,6 @@ export default function BookPage() {
                 </select>
               </div>
 
-              {/* QUANTITY */}
               <div>
                 <label className="block text-sm font-black text-slate-700 mb-2">
                   Number of Packages
@@ -440,7 +435,6 @@ export default function BookPage() {
                 />
               </div>
 
-              {/* WEIGHT */}
               <div>
                 <label className="block text-sm font-black text-slate-700 mb-2">
                   Package Weight (kg)
@@ -459,7 +453,6 @@ export default function BookPage() {
                 />
               </div>
 
-              {/* VALUE */}
               <div>
                 <label className="block text-sm font-black text-slate-700 mb-2">
                   Declared Package Value
@@ -479,7 +472,6 @@ export default function BookPage() {
               </div>
             </div>
 
-            {/* DESCRIPTION */}
             <div className="mt-6">
               <label className="block text-sm font-black text-slate-700 mb-2">
                 Package Description
@@ -496,7 +488,6 @@ export default function BookPage() {
               />
             </div>
 
-            {/* SPECIAL HANDLING */}
             <div className="mt-6">
               <label className="block text-sm font-black text-slate-700 mb-2">
                 Special Handling Instructions
@@ -514,7 +505,6 @@ export default function BookPage() {
             </div>
           </div>
 
-          {/* SECURITY NOTICE */}
           <div className="mt-8 bg-blue-50 border border-blue-100 rounded-2xl p-5">
             <p className="font-black text-blue-900">
               🔒 Your shipment belongs to your account
@@ -526,7 +516,6 @@ export default function BookPage() {
             </p>
           </div>
 
-          {/* BUTTON */}
           <button
             type="submit"
             disabled={loading}
@@ -541,4 +530,3 @@ export default function BookPage() {
     </main>
   );
 }
-```
