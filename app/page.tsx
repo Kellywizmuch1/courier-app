@@ -1,20 +1,23 @@
+import Navbar from "../components/Navbar";
+import Hero from "../components/Hero";
+import Services from "../components/Services";
+import WhyChooseUs from "../components/WhyChooseUs";
+import Stats from "../components/Stats";
+import Testimonials from "../components/Testimonials";
+import CustomerSupport from "../components/CustomerSupport";
+import Footer from "../components/Footer";
+
 export default function Home() {
   return (
-    <main style={{ padding: "40px", fontFamily: "Arial, sans-serif" }}>
-      <h1>🚚 Kellywiz Courier</h1>
-      <p>Welcome to my first Next.js website.</p>
-      <p>This site is being built with Next.js, GitHub, Supabase, and Vercel.</p>
-
-      <button
-        style={{
-          marginTop: "20px",
-          padding: "12px 24px",
-          fontSize: "16px",
-          cursor: "pointer",
-        }}
-      >
-        Track a Package
-      </button>
-    </main>
+    <>
+      <Navbar />
+      <Hero />
+      <Services />
+      <WhyChooseUs />
+      <Stats />
+      <Testimonials />
+      <CustomerSupport />
+      <Footer />
+    </>
   );
 }
