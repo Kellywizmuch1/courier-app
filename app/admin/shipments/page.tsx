@@ -18,53 +18,37 @@ import { supabase } from "../../../lib/supabase";
 
 type Booking = {
   id: number;
-  user_id: string | null;
-
-  tracking_number: string | null;
-
-  sender_name: string | null;
-  receiver_name: string | null;
-
-  pickup_address: string | null;
-  delivery_address: string | null;
-
-  phone_number: string | null;
-
-  status: string | null;
-
-  current_location: string | null;
-  next_location: string | null;
-
-  estimated_delivery: string | null;
-  last_updated: string | null;
-  created_at: string | null;
-
-  package_type: string | null;
-  package_description: string | null;
-  package_weight: number | null;
-  package_quantity: number | null;
-  package_length: number | null;
-  package_width: number | null;
-  package_height: number | null;
-  package_value: number | null;
-  special_handling: string | null;
+  user_id: string;
+  tracking_number: string;
+  sender_name: string;
+  receiver_name: string;
+  pickup_address: string;
+  delivery_address: string;
+  phone_number: string;
+  status: string;
+  current_location: string;
+  next_location: string;
+  estimated_delivery: string;
+  last_updated: string;
+  created_at?: string;
 };
 
 export default function AdminShipmentsPage() {
   const router = useRouter();
 
   const [bookings, setBookings] = useState<Booking[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const [search, setSearch] = useState<string>("");
-  const [statusFilter, setStatusFilter] = useState<string>("All");
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] =
+    useState("All");
 
   useEffect(() => {
     checkAdmin();
   }, []);
 
-  async function checkAdmin(): Promise<void> {
+  async function checkAdmin() {
     setLoading(true);
 
     const {
@@ -77,10 +61,16 @@ export default function AdminShipmentsPage() {
       return;
     }
 
-    const email = session.user.email?.toLowerCase();
+    const email =
+      session.user.email?.toLowerCase();
 
-    if (email !== "michealkellywiz@gmail.com") {
-      alert("You do not have permission to access the admin dashboard.");
+    if (
+      email !==
+      "michealkellywiz@gmail.com"
+    ) {
+      alert(
+        "You do not have permission to access the admin dashboard."
+      );
 
       router.replace("/dashboard");
       return;
@@ -91,7 +81,7 @@ export default function AdminShipmentsPage() {
     setLoading(false);
   }
 
-  async function loadShipments(): Promise<void> {
+  async function loadShipments() {
     const { data, error } = await supabase
       .from("bookings")
       .select("*")
@@ -100,17 +90,23 @@ export default function AdminShipmentsPage() {
       });
 
     if (error) {
-      console.error("ADMIN SHIPMENTS ERROR:", error);
+      console.error(
+        "ADMIN SHIPMENTS ERROR:",
+        error
+      );
 
-      alert("Could not load shipments: " + error.message);
+      alert(
+        "Could not load shipments: " +
+          error.message
+      );
 
       return;
     }
 
-    setBookings((data as Booking[]) || []);
+    setBookings(data || []);
   }
 
-  async function refreshShipments(): Promise<void> {
+  async function refreshShipments() {
     setRefreshing(true);
 
     await loadShipments();
@@ -119,65 +115,70 @@ export default function AdminShipmentsPage() {
   }
 
   const filteredBookings = useMemo(() => {
-    const searchValue = search.trim().toLowerCase();
+    const searchValue = search
+      .trim()
+      .toLowerCase();
 
     return bookings.filter((booking) => {
-      const tracking =
-        booking.tracking_number?.toLowerCase() || "";
-
-      const sender =
-        booking.sender_name?.toLowerCase() || "";
-
-      const receiver =
-        booking.receiver_name?.toLowerCase() || "";
-
-      const pickup =
-        booking.pickup_address?.toLowerCase() || "";
-
-      const delivery =
-        booking.delivery_address?.toLowerCase() || "";
-
-      const packageType =
-        booking.package_type?.toLowerCase() || "";
-
-      const packageDescription =
-        booking.package_description?.toLowerCase() || "";
-
       const matchesSearch =
-        searchValue === "" ||
-        tracking.includes(searchValue) ||
-        sender.includes(searchValue) ||
-        receiver.includes(searchValue) ||
-        pickup.includes(searchValue) ||
-        delivery.includes(searchValue) ||
-        packageType.includes(searchValue) ||
-        packageDescription.includes(searchValue);
+        !searchValue ||
+        booking.tracking_number
+          ?.toLowerCase()
+          .includes(searchValue) ||
+        booking.sender_name
+          ?.toLowerCase()
+          .includes(searchValue) ||
+        booking.receiver_name
+          ?.toLowerCase()
+          .includes(searchValue) ||
+        booking.pickup_address
+          ?.toLowerCase()
+          .includes(searchValue) ||
+        booking.delivery_address
+          ?.toLowerCase()
+          .includes(searchValue);
 
       const matchesStatus =
         statusFilter === "All" ||
         booking.status === statusFilter;
 
-      return matchesSearch && matchesStatus;
+      return (
+        matchesSearch &&
+        matchesStatus
+      );
     });
-  }, [bookings, search, statusFilter]);
+  }, [
+    bookings,
+    search,
+    statusFilter,
+  ]);
 
-  const totalShipments = bookings.length;
+  const totalShipments =
+    bookings.length;
 
-  const activeShipments = bookings.filter(
-    (booking) => booking.status !== "Delivered"
-  ).length;
+  const activeShipments =
+    bookings.filter(
+      (booking) =>
+        booking.status !== "Delivered"
+    ).length;
 
-  const deliveredShipments = bookings.filter(
-    (booking) => booking.status === "Delivered"
-  ).length;
+  const deliveredShipments =
+    bookings.filter(
+      (booking) =>
+        booking.status === "Delivered"
+    ).length;
 
-  const delayedShipments = bookings.filter(
-    (booking) =>
-      booking.status === "Delayed" ||
-      booking.status === "Delivery Issue"
-  ).length;
+  const delayedShipments =
+    bookings.filter(
+      (booking) =>
+        booking.status === "Delayed" ||
+        booking.status ===
+          "Delivery Issue"
+    ).length;
 
-  function statusStyle(status: string | null): string {
+  function statusStyle(
+    status: string
+  ) {
     switch (status) {
       case "Delivered":
         return "bg-green-100 text-green-700";
@@ -199,7 +200,9 @@ export default function AdminShipmentsPage() {
     }
   }
 
-  function statusIcon(status: string | null) {
+  function statusIcon(
+    status: string
+  ) {
     switch (status) {
       case "Delivered":
         return (
@@ -241,150 +244,182 @@ export default function AdminShipmentsPage() {
     return (
       <main className="min-h-screen bg-slate-100 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-16 h-16 rounded-2xl bg-blue-950 flex items-center justify-center mx-auto">
-            <Package
-              size={32}
-              className="text-white animate-pulse"
-            />
-          </div>
+
+          <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto" />
 
           <p className="mt-5 font-bold text-slate-700">
             Loading shipments...
           </p>
+
         </div>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-slate-100">
+    <main className="min-h-screen bg-slate-100 text-slate-900">
+
       {/* HEADER */}
 
       <header className="bg-blue-950 text-white">
-        <div className="max-w-7xl mx-auto px-6 py-8">
+
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+
           <Link
             href="/admin"
-            className="inline-flex items-center gap-2 text-blue-200 hover:text-white font-bold transition"
+            className="inline-flex items-center gap-2 text-blue-200 hover:text-white font-bold text-sm transition"
           >
             <ArrowLeft size={18} />
-
             Back to Admin Dashboard
           </Link>
 
-          <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6 mt-7">
+          <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-5 mt-6 sm:mt-7">
+
             <div>
-              <p className="text-orange-400 font-black uppercase tracking-widest text-sm">
+
+              <p className="text-orange-400 font-black uppercase tracking-widest text-xs sm:text-sm">
                 Atlas Express
               </p>
 
-              <h1 className="text-4xl md:text-5xl font-black mt-2">
+              <h1 className="text-3xl sm:text-4xl md:text-5xl font-black mt-2">
                 Shipment Management
               </h1>
 
-              <p className="text-blue-200 mt-2">
-                Search, view and manage customer shipments.
+              <p className="text-blue-200 mt-2 text-sm sm:text-base">
+                Search, filter and manage customer shipments.
               </p>
+
             </div>
 
             <button
-              type="button"
               onClick={refreshShipments}
               disabled={refreshing}
-              className="inline-flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 disabled:opacity-60 border border-white/10 px-6 py-3 rounded-xl font-black transition"
+              className="inline-flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 disabled:opacity-60 border border-white/10 px-5 py-3 rounded-xl font-black transition"
             >
+
               <RefreshCw
                 size={18}
-                className={refreshing ? "animate-spin" : ""}
+                className={
+                  refreshing
+                    ? "animate-spin"
+                    : ""
+                }
               />
 
               {refreshing
                 ? "Refreshing..."
                 : "Refresh Shipments"}
+
             </button>
+
           </div>
+
         </div>
+
       </header>
 
       {/* CONTENT */}
 
-      <section className="max-w-7xl mx-auto px-6 py-10">
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
+
         {/* STATISTICS */}
 
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6">
-            <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
+
+          <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200 shadow-sm p-4 sm:p-6">
+
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-blue-100 flex items-center justify-center">
+
               <Package
-                size={24}
+                size={22}
                 className="text-blue-800"
               />
+
             </div>
 
-            <p className="text-sm font-bold text-slate-500 mt-5">
+            <p className="text-xs sm:text-sm font-bold text-slate-500 mt-4">
               Total Shipments
             </p>
 
-            <p className="text-3xl font-black mt-1">
+            <p className="text-2xl sm:text-3xl font-black mt-1">
               {totalShipments}
             </p>
+
           </div>
 
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6">
-            <div className="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center">
+          <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200 shadow-sm p-4 sm:p-6">
+
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-orange-100 flex items-center justify-center">
+
               <Truck
-                size={24}
+                size={22}
                 className="text-orange-600"
               />
+
             </div>
 
-            <p className="text-sm font-bold text-slate-500 mt-5">
+            <p className="text-xs sm:text-sm font-bold text-slate-500 mt-4">
               Active Shipments
             </p>
 
-            <p className="text-3xl font-black mt-1">
+            <p className="text-2xl sm:text-3xl font-black mt-1">
               {activeShipments}
             </p>
+
           </div>
 
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6">
-            <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center">
+          <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200 shadow-sm p-4 sm:p-6">
+
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-green-100 flex items-center justify-center">
+
               <CheckCircle
-                size={24}
+                size={22}
                 className="text-green-600"
               />
+
             </div>
 
-            <p className="text-sm font-bold text-slate-500 mt-5">
+            <p className="text-xs sm:text-sm font-bold text-slate-500 mt-4">
               Delivered
             </p>
 
-            <p className="text-3xl font-black mt-1">
+            <p className="text-2xl sm:text-3xl font-black mt-1">
               {deliveredShipments}
             </p>
+
           </div>
 
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6">
-            <div className="w-12 h-12 rounded-xl bg-red-100 flex items-center justify-center">
+          <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200 shadow-sm p-4 sm:p-6">
+
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-red-100 flex items-center justify-center">
+
               <AlertTriangle
-                size={24}
+                size={22}
                 className="text-red-600"
               />
+
             </div>
 
-            <p className="text-sm font-bold text-slate-500 mt-5">
+            <p className="text-xs sm:text-sm font-bold text-slate-500 mt-4">
               Attention Required
             </p>
 
-            <p className="text-3xl font-black mt-1">
+            <p className="text-2xl sm:text-3xl font-black mt-1">
               {delayedShipments}
             </p>
+
           </div>
+
         </div>
 
-        {/* SEARCH */}
+        {/* SEARCH / FILTER */}
 
-        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 mt-8">
-          <div className="flex flex-col lg:flex-row gap-4">
+        <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200 shadow-sm p-4 sm:p-6 mt-6 sm:mt-8">
+
+          <div className="flex flex-col lg:flex-row gap-3 sm:gap-4">
+
             <div className="relative flex-1">
+
               <Search
                 size={20}
                 className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
@@ -393,21 +428,27 @@ export default function AdminShipmentsPage() {
               <input
                 type="text"
                 value={search}
-                onChange={(event) =>
-                  setSearch(event.target.value)
+                onChange={(e) =>
+                  setSearch(
+                    e.target.value
+                  )
                 }
-                placeholder="Search tracking number, sender, receiver or package..."
-                className="w-full border-2 border-slate-200 rounded-xl py-4 pl-12 pr-4 text-slate-900 font-semibold focus:outline-none focus:border-orange-500"
+                placeholder="Search tracking number, sender, receiver or address..."
+                className="w-full border-2 border-slate-200 rounded-xl py-3.5 sm:py-4 pl-12 pr-4 text-slate-900 font-semibold focus:outline-none focus:border-orange-500 text-sm sm:text-base"
               />
+
             </div>
 
             <select
               value={statusFilter}
-              onChange={(event) =>
-                setStatusFilter(event.target.value)
+              onChange={(e) =>
+                setStatusFilter(
+                  e.target.value
+                )
               }
-              className="lg:w-64 border-2 border-slate-200 rounded-xl px-4 py-4 font-bold bg-white focus:outline-none focus:border-orange-500"
+              className="lg:w-64 border-2 border-slate-200 rounded-xl px-4 py-3.5 sm:py-4 font-bold bg-white focus:outline-none focus:border-orange-500 text-sm sm:text-base"
             >
+
               <option value="All">
                 All Statuses
               </option>
@@ -435,306 +476,246 @@ export default function AdminShipmentsPage() {
               <option value="Delivered">
                 Delivered
               </option>
+
             </select>
+
           </div>
 
-          <div className="mt-4 text-sm text-slate-500">
+          <div className="mt-3 text-xs sm:text-sm text-slate-500">
+
             Showing{" "}
+
             <span className="font-black text-slate-900">
               {filteredBookings.length}
             </span>{" "}
+
             of{" "}
+
             <span className="font-black text-slate-900">
               {bookings.length}
             </span>{" "}
+
             shipments
+
           </div>
+
         </div>
 
         {/* SHIPMENTS */}
 
-        <div className="mt-8">
+        <div className="mt-6 sm:mt-8">
+
           {filteredBookings.length === 0 ? (
-            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-12 text-center">
-              <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto">
+
+            <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200 shadow-sm p-10 sm:p-12 text-center">
+
+              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto">
+
                 <Package
                   size={30}
                   className="text-slate-400"
                 />
+
               </div>
 
-              <h2 className="text-2xl font-black mt-6">
+              <h2 className="text-xl sm:text-2xl font-black mt-5">
                 No shipments found
               </h2>
 
-              <p className="text-slate-500 mt-2">
+              <p className="text-slate-500 mt-2 text-sm">
                 Try changing your search or status filter.
               </p>
+
             </div>
+
           ) : (
-            <div className="space-y-5">
-              {filteredBookings.map((booking) => (
-                <div
-                  key={booking.id}
-                  className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden"
-                >
-                  {/* CARD HEADER */}
 
-                  <div className="bg-slate-950 text-white p-6">
-                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                      <div>
-                        <p className="text-orange-400 text-xs font-black uppercase tracking-widest">
-                          Shipment ID #{booking.id}
-                        </p>
+            <div className="space-y-4 sm:space-y-5">
 
-                        <h2 className="text-2xl font-black mt-1">
-                          {booking.tracking_number ||
-                            "No tracking number"}
-                        </h2>
-                      </div>
+              {filteredBookings.map(
+                (booking) => (
 
-                      <div className="flex items-center gap-3">
-                        {statusIcon(booking.status)}
+                  <div
+                    key={booking.id}
+                    className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200 shadow-sm overflow-hidden"
+                  >
 
-                        <span
-                          className={`px-4 py-2 rounded-full text-sm font-black ${statusStyle(
-                            booking.status
-                          )}`}
-                        >
-                          {booking.status || "Pending"}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
+                    {/* CARD HEADER */}
 
-                  {/* CARD BODY */}
+                    <div className="bg-slate-950 text-white p-5 sm:p-6">
 
-                  <div className="p-6">
-                    <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-                      <div className="bg-slate-50 rounded-2xl p-5">
-                        <p className="text-xs uppercase tracking-wider font-black text-slate-400">
-                          Sender
-                        </p>
+                      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
 
-                        <p className="font-black mt-2 text-slate-900">
-                          {booking.sender_name ||
-                            "Not provided"}
-                        </p>
-                      </div>
+                        <div>
 
-                      <div className="bg-slate-50 rounded-2xl p-5">
-                        <p className="text-xs uppercase tracking-wider font-black text-slate-400">
-                          Receiver
-                        </p>
+                          <p className="text-orange-400 text-[10px] sm:text-xs font-black uppercase tracking-widest">
+                            Tracking Number
+                          </p>
 
-                        <p className="font-black mt-2 text-slate-900">
-                          {booking.receiver_name ||
-                            "Not provided"}
-                        </p>
-                      </div>
+                          <h2 className="text-xl sm:text-2xl font-black mt-1 break-all">
+                            {booking.tracking_number}
+                          </h2>
 
-                      <div className="bg-orange-50 rounded-2xl p-5">
-                        <p className="text-xs uppercase tracking-wider font-black text-orange-500">
-                          Current Location
-                        </p>
+                        </div>
 
-                        <p className="font-black mt-2 text-slate-900">
-                          {booking.current_location ||
-                            "Awaiting pickup"}
-                        </p>
-                      </div>
-
-                      <div className="bg-blue-50 rounded-2xl p-5">
-                        <p className="text-xs uppercase tracking-wider font-black text-blue-500">
-                          Estimated Delivery
-                        </p>
-
-                        <p className="font-black mt-2 text-slate-900">
-                          {booking.estimated_delivery ||
-                            "Not available"}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* ADDRESSES */}
-
-                    <div className="grid md:grid-cols-2 gap-4 mt-6">
-                      <div>
-                        <p className="text-xs uppercase tracking-wider font-black text-slate-400">
-                          Pickup Address
-                        </p>
-
-                        <p className="text-sm font-semibold text-slate-600 mt-1">
-                          {booking.pickup_address ||
-                            "Not provided"}
-                        </p>
-                      </div>
-
-                      <div>
-                        <p className="text-xs uppercase tracking-wider font-black text-slate-400">
-                          Delivery Address
-                        </p>
-
-                        <p className="text-sm font-semibold text-slate-600 mt-1">
-                          {booking.delivery_address ||
-                            "Not provided"}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* PACKAGE INFORMATION */}
-
-                    <div className="mt-6 border-2 border-slate-200 rounded-2xl overflow-hidden">
-                      <div className="bg-slate-950 text-white px-5 py-4">
                         <div className="flex items-center gap-3">
-                          <Package size={20} />
 
-                          <div>
-                            <p className="font-black">
-                              Package Information
-                            </p>
+                          {statusIcon(
+                            booking.status
+                          )}
 
-                            <p className="text-xs text-slate-400">
-                              Shipment details provided by customer
-                            </p>
-                          </div>
+                          <span
+                            className={`px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-black ${statusStyle(
+                              booking.status
+                            )}`}
+                          >
+                            {booking.status ||
+                              "Pending"}
+                          </span>
+
                         </div>
+
                       </div>
 
-                      <div className="p-5 grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <div className="bg-slate-50 rounded-xl p-4">
-                          <p className="text-xs uppercase font-black text-slate-400">
-                            Package Type
+                    </div>
+
+                    {/* CARD BODY */}
+
+                    <div className="p-4 sm:p-6">
+
+                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+
+                        <div className="bg-slate-50 rounded-2xl p-4 sm:p-5">
+
+                          <p className="text-[10px] sm:text-xs uppercase tracking-wider font-black text-slate-400">
+                            Sender
                           </p>
 
-                          <p className="font-bold mt-1 text-slate-900">
-                            {booking.package_type ||
+                          <p className="font-black mt-1.5 text-sm sm:text-base">
+                            {booking.sender_name ||
                               "Not provided"}
                           </p>
+
                         </div>
 
-                        <div className="bg-slate-50 rounded-xl p-4">
-                          <p className="text-xs uppercase font-black text-slate-400">
-                            Quantity
+                        <div className="bg-slate-50 rounded-2xl p-4 sm:p-5">
+
+                          <p className="text-[10px] sm:text-xs uppercase tracking-wider font-black text-slate-400">
+                            Receiver
                           </p>
 
-                          <p className="font-bold mt-1 text-slate-900">
-                            {booking.package_quantity ??
+                          <p className="font-black mt-1.5 text-sm sm:text-base">
+                            {booking.receiver_name ||
                               "Not provided"}
                           </p>
+
                         </div>
 
-                        <div className="bg-slate-50 rounded-xl p-4">
-                          <p className="text-xs uppercase font-black text-slate-400">
-                            Weight
+                        <div className="bg-orange-50 rounded-2xl p-4 sm:p-5">
+
+                          <p className="text-[10px] sm:text-xs uppercase tracking-wider font-black text-orange-500">
+                            Current Location
                           </p>
 
-                          <p className="font-bold mt-1 text-slate-900">
-                            {booking.package_weight !== null &&
-                            booking.package_weight !==
-                              undefined
-                              ? `${booking.package_weight} kg`
-                              : "Not provided"}
+                          <p className="font-black mt-1.5 text-sm sm:text-base">
+                            {booking.current_location ||
+                              "Awaiting pickup"}
                           </p>
+
                         </div>
 
-                        <div className="bg-slate-50 rounded-xl p-4">
-                          <p className="text-xs uppercase font-black text-slate-400">
-                            Declared Value
+                        <div className="bg-blue-50 rounded-2xl p-4 sm:p-5">
+
+                          <p className="text-[10px] sm:text-xs uppercase tracking-wider font-black text-blue-500">
+                            Estimated Delivery
                           </p>
 
-                          <p className="font-bold mt-1 text-slate-900">
-                            {booking.package_value !== null &&
-                            booking.package_value !==
-                              undefined
-                              ? `$${booking.package_value}`
-                              : "Not provided"}
+                          <p className="font-black mt-1.5 text-sm sm:text-base">
+                            {booking.estimated_delivery ||
+                              "Not available"}
                           </p>
+
                         </div>
+
                       </div>
 
-                      <div className="px-5 pb-5">
-                        <p className="text-xs uppercase font-black text-slate-400">
-                          Package Description
-                        </p>
+                      <div className="grid md:grid-cols-2 gap-4 mt-4">
 
-                        <p className="text-sm text-slate-600 font-semibold mt-1">
-                          {booking.package_description ||
-                            "No package description provided."}
-                        </p>
+                        <div>
+
+                          <p className="text-[10px] sm:text-xs uppercase tracking-wider font-black text-slate-400">
+                            Pickup
+                          </p>
+
+                          <p className="text-sm font-semibold text-slate-600 mt-1">
+                            {booking.pickup_address ||
+                              "Not provided"}
+                          </p>
+
+                        </div>
+
+                        <div>
+
+                          <p className="text-[10px] sm:text-xs uppercase tracking-wider font-black text-slate-400">
+                            Destination
+                          </p>
+
+                          <p className="text-sm font-semibold text-slate-600 mt-1">
+                            {booking.delivery_address ||
+                              "Not provided"}
+                          </p>
+
+                        </div>
+
                       </div>
 
-                      {booking.special_handling && (
-                        <div className="px-5 pb-5">
-                          <p className="text-xs uppercase font-black text-slate-400">
-                            Special Handling
-                          </p>
+                      {/* ACTION BUTTONS */}
 
-                          <p className="text-sm text-slate-600 font-semibold mt-1">
-                            {booking.special_handling}
-                          </p>
-                        </div>
+                      <div className="flex flex-col sm:flex-row gap-3 mt-5 sm:mt-6">
+
+                        <Link
+                          href={`/track?tracking=${encodeURIComponent(
+                            booking.tracking_number
+                          )}`}
+                          className="flex-1 inline-flex items-center justify-center bg-blue-900 hover:bg-blue-800 text-white px-5 py-3 rounded-xl font-black transition"
+                        >
+                          View Tracking
+                        </Link>
+
+                        <Link
+                          href={`/admin/shipments/${booking.id}`}
+                          className="flex-1 inline-flex items-center justify-center bg-orange-500 hover:bg-orange-600 text-white px-5 py-3 rounded-xl font-black transition"
+                        >
+                          Manage Shipment
+                        </Link>
+
+                      </div>
+
+                      {booking.last_updated && (
+                        <p className="text-[11px] sm:text-xs text-slate-400 mt-4 sm:mt-5">
+                          Last updated:{" "}
+
+                          {new Date(
+                            booking.last_updated
+                          ).toLocaleString()}
+                        </p>
                       )}
+
                     </div>
 
-                    {/* PHONE */}
-
-                    {booking.phone_number && (
-                      <div className="mt-5 bg-blue-50 rounded-2xl p-5">
-                        <p className="text-xs uppercase tracking-wider font-black text-blue-500">
-                          Contact Phone
-                        </p>
-
-                        <p className="font-black mt-1 text-slate-900">
-                          {booking.phone_number}
-                        </p>
-                      </div>
-                    )}
-
-                    {/* ACTIONS */}
-
-                    <div className="flex flex-col sm:flex-row gap-3 mt-6">
-                      <Link
-                        href={`/track?tracking=${encodeURIComponent(
-                          booking.tracking_number || ""
-                        )}`}
-                        className="flex-1 inline-flex items-center justify-center bg-blue-900 hover:bg-blue-800 text-white px-5 py-3 rounded-xl font-black transition"
-                      >
-                        View Tracking
-                      </Link>
-
-                      <Link
-                        href={`/admin/shipments/${booking.id}`}
-                        className="flex-1 inline-flex items-center justify-center bg-orange-500 hover:bg-orange-600 text-white px-5 py-3 rounded-xl font-black transition"
-                      >
-                        Manage Shipment
-                      </Link>
-                    </div>
-
-                    {booking.created_at && (
-                      <p className="text-xs text-slate-400 mt-5">
-                        Created:{" "}
-                        {new Date(
-                          booking.created_at
-                        ).toLocaleString()}
-                      </p>
-                    )}
-
-                    {booking.last_updated && (
-                      <p className="text-xs text-slate-400 mt-1">
-                        Last updated:{" "}
-                        {new Date(
-                          booking.last_updated
-                        ).toLocaleString()}
-                      </p>
-                    )}
                   </div>
-                </div>
-              ))}
+
+                )
+              )}
+
             </div>
+
           )}
+
         </div>
+
       </section>
+
     </main>
   );
 }

@@ -13,6 +13,9 @@ import {
   AlertTriangle,
   CheckCircle,
   Clock,
+  Save,
+  Plus,
+  Trash2,
 } from "lucide-react";
 
 import { supabase } from "../../../../lib/supabase";
@@ -32,12 +35,21 @@ type Booking = {
   estimated_delivery: string;
   last_updated: string;
   created_at?: string;
+
+  package_type?: string | null;
+  package_description?: string | null;
+  package_weight?: number | null;
+  package_quantity?: number | null;
+  package_value?: number | null;
+  special_handling?: string | null;
+
   pickup_latitude?: number | null;
   pickup_longitude?: number | null;
   current_latitude?: number | null;
   current_longitude?: number | null;
   delivery_latitude?: number | null;
   delivery_longitude?: number | null;
+
   delivery_issue?: string | null;
   delivery_update?: string | null;
 };
@@ -51,23 +63,50 @@ type ShipmentUpdate = {
   created_at: string;
 };
 
+const STATUS_OPTIONS = [
+  "Pending",
+  "Picked Up",
+  "In Transit",
+  "Delayed",
+  "Delivery Issue",
+  "Delivered",
+];
+
 export default function AdminShipmentPage() {
   const router = useRouter();
   const params = useParams();
 
   const shipmentId = String(params.id);
 
-  const [shipment, setShipment] =
-    useState<Booking | null>(null);
+  const [shipment, setShipment] = useState<Booking | null>(null);
+  const [updates, setUpdates] = useState<ShipmentUpdate[]>([]);
 
-  const [updates, setUpdates] =
-    useState<ShipmentUpdate[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [addingUpdate, setAddingUpdate] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const [loading, setLoading] =
-    useState(true);
+  const [form, setForm] = useState({
+    status: "",
+    current_location: "",
+    next_location: "",
+    estimated_delivery: "",
+    delivery_issue: "",
+    delivery_update: "",
 
-  const [refreshing, setRefreshing] =
-    useState(false);
+    package_type: "",
+    package_description: "",
+    package_weight: "",
+    package_quantity: "",
+    package_value: "",
+    special_handling: "",
+  });
+
+  const [updateForm, setUpdateForm] = useState({
+    status: "",
+    location: "",
+    message: "",
+  });
 
   useEffect(() => {
     checkAdmin();
@@ -86,17 +125,10 @@ export default function AdminShipmentPage() {
       return;
     }
 
-    const email =
-      session.user.email?.toLowerCase();
+    const email = session.user.email?.toLowerCase();
 
-    if (
-      email !==
-      "michealkellywiz@gmail.com"
-    ) {
-      alert(
-        "You do not have permission to access this page."
-      );
-
+    if (email !== "michealkellywiz@gmail.com") {
+      alert("You do not have permission to access this page.");
       router.replace("/dashboard");
       return;
     }
@@ -107,29 +139,12 @@ export default function AdminShipmentPage() {
   }
 
   async function loadShipment() {
-    if (!shipmentId) {
-      return;
-    }
-
-    /*
-      The [id] URL value can be either:
-
-      /admin/shipments/123
-
-      OR
-
-      /admin/shipments/TRK123456
-
-      We first try the database ID.
-      If that doesn't work, we try the
-      tracking number.
-    */
+    if (!shipmentId) return;
 
     let data: Booking | null = null;
     let error: any = null;
 
-    const numericId =
-      Number(shipmentId);
+    const numericId = Number(shipmentId);
 
     if (!Number.isNaN(numericId)) {
       const result = await supabase
@@ -142,19 +157,11 @@ export default function AdminShipmentPage() {
       error = result.error;
     }
 
-    /*
-      If the database ID didn't find anything,
-      try the tracking number.
-    */
-
     if (!data && !error) {
       const result = await supabase
         .from("bookings")
         .select("*")
-        .eq(
-          "tracking_number",
-          shipmentId
-        )
+        .eq("tracking_number", shipmentId)
         .maybeSingle();
 
       data = result.data;
@@ -162,42 +169,62 @@ export default function AdminShipmentPage() {
     }
 
     if (error) {
-      console.error(
-        "SHIPMENT ERROR:",
-        error
-      );
+      console.error("SHIPMENT ERROR:", error);
 
       alert(
         "Could not load shipment: " +
-          (error.message ||
-            "Unknown Supabase error")
+          (error.message || "Unknown Supabase error")
       );
 
       return;
     }
 
     if (!data) {
-      alert(
-        "Shipment not found."
-      );
-
+      alert("Shipment not found.");
       return;
     }
 
     setShipment(data);
 
-    await loadShipmentUpdates(
-      data.id
-    );
+    setForm({
+      status: data.status || "Pending",
+      current_location: data.current_location || "",
+      next_location: data.next_location || "",
+      estimated_delivery: data.estimated_delivery || "",
+      delivery_issue: data.delivery_issue || "",
+      delivery_update: data.delivery_update || "",
+
+      package_type: data.package_type || "",
+      package_description: data.package_description || "",
+      package_weight:
+        data.package_weight !== null &&
+        data.package_weight !== undefined
+          ? String(data.package_weight)
+          : "",
+      package_quantity:
+        data.package_quantity !== null &&
+        data.package_quantity !== undefined
+          ? String(data.package_quantity)
+          : "",
+      package_value:
+        data.package_value !== null &&
+        data.package_value !== undefined
+          ? String(data.package_value)
+          : "",
+      special_handling: data.special_handling || "",
+    });
+
+    setUpdateForm({
+      status: data.status || "Pending",
+      location: data.current_location || "",
+      message: "",
+    });
+
+    await loadShipmentUpdates(data.id);
   }
 
-  async function loadShipmentUpdates(
-    bookingId: number
-  ) {
-    const {
-      data,
-      error,
-    } = await supabase
+  async function loadShipmentUpdates(bookingId: number) {
+    const { data, error } = await supabase
       .from("shipment_updates")
       .select("*")
       .eq("booking_id", bookingId)
@@ -206,11 +233,7 @@ export default function AdminShipmentPage() {
       });
 
     if (error) {
-      console.error(
-        "SHIPMENT UPDATES ERROR:",
-        error
-      );
-
+      console.error("SHIPMENT UPDATES ERROR:", error);
       return;
     }
 
@@ -225,9 +248,224 @@ export default function AdminShipmentPage() {
     setRefreshing(false);
   }
 
-  function statusStyle(
-    status: string
+  async function saveShipment() {
+    if (!shipment) return;
+
+    setSaving(true);
+
+    const newStatus = form.status || "Pending";
+
+    const { data, error } = await supabase
+      .from("bookings")
+      .update({
+        status: newStatus,
+
+        current_location:
+          form.current_location.trim() || null,
+
+        next_location:
+          form.next_location.trim() || null,
+
+        estimated_delivery:
+          form.estimated_delivery.trim() || null,
+
+        delivery_issue:
+          form.delivery_issue.trim() || null,
+
+        delivery_update:
+          form.delivery_update.trim() || null,
+
+        package_type:
+          form.package_type.trim() || null,
+
+        package_description:
+          form.package_description.trim() || null,
+
+        package_weight:
+          form.package_weight.trim()
+            ? Number(form.package_weight)
+            : null,
+
+        package_quantity:
+          form.package_quantity.trim()
+            ? Number(form.package_quantity)
+            : null,
+
+        package_value:
+          form.package_value.trim()
+            ? Number(form.package_value)
+            : null,
+
+        special_handling:
+          form.special_handling.trim() || null,
+
+        last_updated: new Date().toISOString(),
+      })
+      .eq("id", shipment.id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("SAVE SHIPMENT ERROR:", error);
+
+      alert(
+        "Could not save shipment: " +
+          error.message
+      );
+
+      setSaving(false);
+      return;
+    }
+
+    setShipment(data);
+
+    /*
+     * Keep the tracking update editor synchronized
+     * with the new shipment status/location.
+     */
+    setUpdateForm((previous) => ({
+      ...previous,
+      status: newStatus,
+      location:
+        form.current_location ||
+        previous.location,
+    }));
+
+    alert("Shipment saved successfully.");
+
+    setSaving(false);
+  }
+
+  async function addTrackingUpdate() {
+    if (!shipment) return;
+
+    if (!updateForm.status) {
+      alert("Please select a tracking status.");
+      return;
+    }
+
+    if (!updateForm.message.trim()) {
+      alert("Please enter a tracking update message.");
+      return;
+    }
+
+    setAddingUpdate(true);
+
+    const { error } = await supabase
+      .from("shipment_updates")
+      .insert({
+        booking_id: shipment.id,
+        status: updateForm.status,
+        location:
+          updateForm.location.trim() || null,
+        message: updateForm.message.trim(),
+        created_at: new Date().toISOString(),
+      });
+
+    if (error) {
+      console.error("ADD TRACKING UPDATE ERROR:", error);
+
+      alert(
+        "Could not add tracking update: " +
+          error.message
+      );
+
+      setAddingUpdate(false);
+      return;
+    }
+
+    /*
+     * Also update the main shipment status/location
+     * so the public tracking page immediately reflects
+     * the newest tracking event.
+     */
+    const { data: updatedShipment, error: shipmentError } =
+      await supabase
+        .from("bookings")
+        .update({
+          status: updateForm.status,
+
+          current_location:
+            updateForm.location.trim() ||
+            shipment.current_location ||
+            null,
+
+          last_updated: new Date().toISOString(),
+        })
+        .eq("id", shipment.id)
+        .select()
+        .single();
+
+    if (shipmentError) {
+      console.error(
+        "UPDATE SHIPMENT AFTER HISTORY ERROR:",
+        shipmentError
+      );
+
+      alert(
+        "Tracking update was added, but the shipment status could not be updated: " +
+          shipmentError.message
+      );
+    } else {
+      setShipment(updatedShipment);
+
+      setForm((previous) => ({
+        ...previous,
+        status: updateForm.status,
+        current_location:
+          updateForm.location ||
+          previous.current_location,
+      }));
+    }
+
+    setUpdateForm((previous) => ({
+      ...previous,
+      message: "",
+    }));
+
+    await loadShipmentUpdates(shipment.id);
+
+    alert("Tracking update added successfully.");
+
+    setAddingUpdate(false);
+  }
+
+  async function deleteTrackingUpdate(
+    updateId: number
   ) {
+    const confirmed = window.confirm(
+      "Delete this tracking update?"
+    );
+
+    if (!confirmed) return;
+
+    const { error } = await supabase
+      .from("shipment_updates")
+      .delete()
+      .eq("id", updateId);
+
+    if (error) {
+      console.error(
+        "DELETE TRACKING UPDATE ERROR:",
+        error
+      );
+
+      alert(
+        "Could not delete update: " +
+          error.message
+      );
+
+      return;
+    }
+
+    setUpdates((previous) =>
+      previous.filter(
+        (update) => update.id !== updateId
+      )
+    );
+  }
+
+  function statusStyle(status: string) {
     switch (status) {
       case "Delivered":
         return "bg-green-100 text-green-700";
@@ -249,9 +487,7 @@ export default function AdminShipmentPage() {
     }
   }
 
-  function statusIcon(
-    status: string
-  ) {
+  function statusIcon(status: string) {
     switch (status) {
       case "Delivered":
         return (
@@ -289,17 +525,19 @@ export default function AdminShipmentPage() {
     }
   }
 
+  function inputClass() {
+    return "w-full border-2 border-slate-200 rounded-xl px-4 py-3 font-semibold text-slate-900 bg-white focus:outline-none focus:border-orange-500";
+  }
+
   if (loading) {
     return (
       <main className="min-h-screen bg-slate-100 flex items-center justify-center">
         <div className="text-center">
-
           <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto" />
 
           <p className="mt-5 font-bold text-slate-700">
             Loading shipment...
           </p>
-
         </div>
       </main>
     );
@@ -308,9 +546,7 @@ export default function AdminShipmentPage() {
   if (!shipment) {
     return (
       <main className="min-h-screen bg-slate-100 flex items-center justify-center px-6">
-
         <div className="bg-white rounded-3xl shadow-lg border border-slate-200 p-10 text-center max-w-lg w-full">
-
           <Package
             size={50}
             className="text-slate-400 mx-auto"
@@ -331,22 +567,17 @@ export default function AdminShipmentPage() {
             <ArrowLeft size={18} />
             Back to Shipments
           </Link>
-
         </div>
-
       </main>
     );
   }
 
   return (
     <main className="min-h-screen bg-slate-100 text-slate-900">
-
       {/* HEADER */}
 
       <header className="bg-blue-950 text-white">
-
-        <div className="max-w-7xl mx-auto px-6 py-8">
-
+        <div className="max-w-7xl mx-auto px-6 py-7">
           <Link
             href="/admin/shipments"
             className="inline-flex items-center gap-2 text-blue-200 hover:text-white font-bold transition"
@@ -355,22 +586,19 @@ export default function AdminShipmentPage() {
             Back to Shipment Management
           </Link>
 
-          <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6 mt-7">
-
+          <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-5 mt-6">
             <div>
-
               <p className="text-orange-400 font-black uppercase tracking-widest text-sm">
                 Atlas Express
               </p>
 
               <h1 className="text-4xl md:text-5xl font-black mt-2">
-                Shipment Details
+                Manage Shipment
               </h1>
 
               <p className="text-blue-200 mt-2">
-                Manage this individual shipment.
+                Edit shipment information and tracking activity.
               </p>
-
             </div>
 
             <button
@@ -391,296 +619,469 @@ export default function AdminShipmentPage() {
                 ? "Refreshing..."
                 : "Refresh"}
             </button>
-
           </div>
-
         </div>
-
       </header>
 
-      {/* CONTENT */}
+      <section className="max-w-7xl mx-auto px-6 py-8">
+        {/* SHIPMENT HEADER */}
 
-      <section className="max-w-7xl mx-auto px-6 py-10">
-
-        {/* TRACKING HEADER */}
-
-        <div className="bg-slate-950 text-white rounded-3xl shadow-xl p-7 md:p-9">
-
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-
+        <div className="bg-slate-950 text-white rounded-3xl shadow-xl p-6 md:p-8">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
             <div>
-
               <p className="text-orange-400 text-sm font-black uppercase tracking-widest">
                 Tracking Number
               </p>
 
-              <h2 className="text-4xl font-black mt-2">
+              <h2 className="text-3xl md:text-4xl font-black mt-2">
                 {shipment.tracking_number}
               </h2>
 
-              <p className="text-slate-400 mt-3">
+              <p className="text-slate-400 mt-2">
                 Shipment ID: {shipment.id}
               </p>
-
             </div>
 
             <div className="flex items-center gap-3">
-
-              {statusIcon(
-                shipment.status
-              )}
+              {statusIcon(shipment.status)}
 
               <span
                 className={`px-5 py-2.5 rounded-full font-black ${statusStyle(
                   shipment.status
                 )}`}
               >
-                {shipment.status ||
-                  "Pending"}
+                {shipment.status || "Pending"}
               </span>
-
             </div>
-
           </div>
-
         </div>
 
-        {/* SHIPMENT INFORMATION */}
-
-        <div className="grid lg:grid-cols-3 gap-6 mt-8">
-
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6">
-
-            <div className="flex items-center gap-3">
-
-              <div className="w-11 h-11 rounded-xl bg-blue-100 flex items-center justify-center">
-
-                <Package
-                  size={22}
-                  className="text-blue-800"
-                />
-
-              </div>
-
-              <div>
-
-                <p className="text-xs uppercase font-black tracking-wider text-slate-400">
-                  Sender
-                </p>
-
-                <p className="font-black mt-1">
-                  {shipment.sender_name}
-                </p>
-
-              </div>
-
-            </div>
-
-          </div>
-
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6">
-
-            <div className="flex items-center gap-3">
-
-              <div className="w-11 h-11 rounded-xl bg-orange-100 flex items-center justify-center">
-
-                <Truck
-                  size={22}
-                  className="text-orange-600"
-                />
-
-              </div>
-
-              <div>
-
-                <p className="text-xs uppercase font-black tracking-wider text-slate-400">
-                  Receiver
-                </p>
-
-                <p className="font-black mt-1">
-                  {shipment.receiver_name}
-                </p>
-
-              </div>
-
-            </div>
-
-          </div>
-
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6">
-
-            <div className="flex items-center gap-3">
-
-              <div className="w-11 h-11 rounded-xl bg-green-100 flex items-center justify-center">
-
-                <CalendarDays
-                  size={22}
-                  className="text-green-600"
-                />
-
-              </div>
-
-              <div>
-
-                <p className="text-xs uppercase font-black tracking-wider text-slate-400">
-                  Estimated Delivery
-                </p>
-
-                <p className="font-black mt-1">
-                  {shipment.estimated_delivery ||
-                    "Not available"}
-                </p>
-
-              </div>
-
-            </div>
-
-          </div>
-
-        </div>
-
-        {/* ROUTE */}
-
-        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-7 mt-8">
-
-          <h2 className="text-2xl font-black text-blue-900">
-            Shipment Route
-          </h2>
-
-          <div className="grid md:grid-cols-2 gap-6 mt-6">
-
-            <div className="bg-orange-50 rounded-2xl p-6">
-
-              <p className="text-xs uppercase tracking-wider font-black text-orange-500">
-                Pickup Address
-              </p>
-
-              <p className="font-bold text-slate-800 mt-2">
-                {shipment.pickup_address}
-              </p>
-
-            </div>
-
-            <div className="bg-blue-50 rounded-2xl p-6">
-
-              <p className="text-xs uppercase tracking-wider font-black text-blue-500">
-                Delivery Address
-              </p>
-
-              <p className="font-bold text-slate-800 mt-2">
-                {shipment.delivery_address}
-              </p>
-
-            </div>
-
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-6 mt-5">
-
-            <div>
-
-              <p className="text-xs uppercase font-black text-slate-400">
-                Current Location
-              </p>
-
-              <div className="flex items-center gap-2 mt-2">
-
-                <MapPin
-                  size={20}
-                  className="text-orange-500"
-                />
-
-                <p className="font-black">
-                  {shipment.current_location ||
-                    "Awaiting pickup"}
-                </p>
-
-              </div>
-
-            </div>
-
-            <div>
-
-              <p className="text-xs uppercase font-black text-slate-400">
-                Next Location
-              </p>
-
-              <div className="flex items-center gap-2 mt-2">
-
-                <MapPin
-                  size={20}
-                  className="text-blue-600"
-                />
-
-                <p className="font-black">
-                  {shipment.next_location ||
-                    "Not available"}
-                </p>
-
-              </div>
-
-            </div>
-
-          </div>
-
-        </div>
-
-        {/* DELIVERY ISSUE */}
-
-        {(shipment.delivery_issue ||
-          shipment.delivery_update) && (
-
-          <div className="bg-red-50 border border-red-200 rounded-3xl p-7 mt-8">
-
-            <div className="flex items-start gap-4">
-
-              <AlertTriangle
-                size={25}
-                className="text-red-600 mt-1"
+        {/* EDIT SHIPMENT */}
+
+        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 md:p-8 mt-7">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-xl bg-orange-100 flex items-center justify-center">
+              <Package
+                size={22}
+                className="text-orange-600"
               />
-
-              <div>
-
-                <h2 className="text-xl font-black text-red-800">
-                  Delivery Update
-                </h2>
-
-                {shipment.delivery_issue && (
-                  <p className="font-black text-red-700 mt-2">
-                    {shipment.delivery_issue}
-                  </p>
-                )}
-
-                {shipment.delivery_update && (
-                  <p className="text-red-700 mt-2">
-                    {shipment.delivery_update}
-                  </p>
-                )}
-
-              </div>
-
             </div>
 
+            <div>
+              <h2 className="text-2xl font-black">
+                Shipment Information
+              </h2>
+
+              <p className="text-slate-500 text-sm">
+                Edit the main shipment details.
+              </p>
+            </div>
           </div>
 
-        )}
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5 mt-7">
+            {/* STATUS */}
 
-        {/* SHIPMENT HISTORY */}
+            <div>
+              <label className="block text-sm font-black text-slate-600 mb-2">
+                Shipment Status
+              </label>
 
-        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-7 mt-8">
+              <select
+                value={form.status}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    status: e.target.value,
+                  })
+                }
+                className={inputClass()}
+              >
+                {STATUS_OPTIONS.map((status) => (
+                  <option
+                    key={status}
+                    value={status}
+                  >
+                    {status}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-          <h2 className="text-2xl font-black text-blue-900">
-            Shipment History
-          </h2>
+            {/* CURRENT LOCATION */}
 
-          <p className="text-slate-500 mt-2">
-            Tracking events recorded for this shipment.
-          </p>
+            <div>
+              <label className="block text-sm font-black text-slate-600 mb-2">
+                Current Location
+              </label>
+
+              <input
+                value={form.current_location}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    current_location:
+                      e.target.value,
+                  })
+                }
+                placeholder="e.g. Lagos Hub"
+                className={inputClass()}
+              />
+            </div>
+
+            {/* NEXT LOCATION */}
+
+            <div>
+              <label className="block text-sm font-black text-slate-600 mb-2">
+                Next Location
+              </label>
+
+              <input
+                value={form.next_location}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    next_location:
+                      e.target.value,
+                  })
+                }
+                placeholder="e.g. Abuja Hub"
+                className={inputClass()}
+              />
+            </div>
+
+            {/* DELIVERY */}
+
+            <div>
+              <label className="block text-sm font-black text-slate-600 mb-2">
+                Estimated Delivery
+              </label>
+
+              <input
+                value={form.estimated_delivery}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    estimated_delivery:
+                      e.target.value,
+                  })
+                }
+                placeholder="e.g. August 12, 2026"
+                className={inputClass()}
+              />
+            </div>
+
+            {/* PACKAGE TYPE */}
+
+            <div>
+              <label className="block text-sm font-black text-slate-600 mb-2">
+                Package Type
+              </label>
+
+              <input
+                value={form.package_type}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    package_type:
+                      e.target.value,
+                  })
+                }
+                placeholder="Box, Document, Electronics..."
+                className={inputClass()}
+              />
+            </div>
+
+            {/* WEIGHT */}
+
+            <div>
+              <label className="block text-sm font-black text-slate-600 mb-2">
+                Weight
+              </label>
+
+              <input
+                type="number"
+                value={form.package_weight}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    package_weight:
+                      e.target.value,
+                  })
+                }
+                placeholder="kg"
+                className={inputClass()}
+              />
+            </div>
+
+            {/* QUANTITY */}
+
+            <div>
+              <label className="block text-sm font-black text-slate-600 mb-2">
+                Quantity
+              </label>
+
+              <input
+                type="number"
+                value={form.package_quantity}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    package_quantity:
+                      e.target.value,
+                  })
+                }
+                placeholder="1"
+                className={inputClass()}
+              />
+            </div>
+
+            {/* VALUE */}
+
+            <div>
+              <label className="block text-sm font-black text-slate-600 mb-2">
+                Declared Value
+              </label>
+
+              <input
+                type="number"
+                value={form.package_value}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    package_value:
+                      e.target.value,
+                  })
+                }
+                placeholder="Value"
+                className={inputClass()}
+              />
+            </div>
+
+            {/* SPECIAL HANDLING */}
+
+            <div>
+              <label className="block text-sm font-black text-slate-600 mb-2">
+                Special Handling
+              </label>
+
+              <input
+                value={form.special_handling}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    special_handling:
+                      e.target.value,
+                  })
+                }
+                placeholder="Handle with care..."
+                className={inputClass()}
+              />
+            </div>
+          </div>
+
+          {/* DESCRIPTION */}
+
+          <div className="mt-5">
+            <label className="block text-sm font-black text-slate-600 mb-2">
+              Package Description
+            </label>
+
+            <textarea
+              value={form.package_description}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  package_description:
+                    e.target.value,
+                })
+              }
+              rows={4}
+              placeholder="Describe the package..."
+              className={inputClass()}
+            />
+          </div>
+
+          {/* DELIVERY ISSUE */}
+
+          <div className="grid md:grid-cols-2 gap-5 mt-5">
+            <div>
+              <label className="block text-sm font-black text-slate-600 mb-2">
+                Delivery Issue
+              </label>
+
+              <textarea
+                value={form.delivery_issue}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    delivery_issue:
+                      e.target.value,
+                  })
+                }
+                rows={3}
+                placeholder="Leave empty if there is no issue."
+                className={inputClass()}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-black text-slate-600 mb-2">
+                Delivery Update
+              </label>
+
+              <textarea
+                value={form.delivery_update}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    delivery_update:
+                      e.target.value,
+                  })
+                }
+                rows={3}
+                placeholder="Additional delivery information..."
+                className={inputClass()}
+              />
+            </div>
+          </div>
+
+          {/* SAVE */}
+
+          <button
+            onClick={saveShipment}
+            disabled={saving}
+            className="mt-7 inline-flex items-center justify-center gap-2 bg-blue-900 hover:bg-blue-800 disabled:opacity-60 text-white px-7 py-3.5 rounded-xl font-black transition"
+          >
+            <Save size={19} />
+
+            {saving
+              ? "Saving..."
+              : "Save Shipment"}
+          </button>
+        </div>
+
+        {/* ADD TRACKING UPDATE */}
+
+        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 md:p-8 mt-7">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-xl bg-green-100 flex items-center justify-center">
+              <Plus
+                size={22}
+                className="text-green-600"
+              />
+            </div>
+
+            <div>
+              <h2 className="text-2xl font-black">
+                Add Tracking Update
+              </h2>
+
+              <p className="text-slate-500 text-sm">
+                Add an event that customers will see on the tracking page.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-5 mt-7">
+            {/* UPDATE STATUS */}
+
+            <div>
+              <label className="block text-sm font-black text-slate-600 mb-2">
+                Update Status
+              </label>
+
+              <select
+                value={updateForm.status}
+                onChange={(e) =>
+                  setUpdateForm({
+                    ...updateForm,
+                    status: e.target.value,
+                  })
+                }
+                className={inputClass()}
+              >
+                {STATUS_OPTIONS.map((status) => (
+                  <option
+                    key={status}
+                    value={status}
+                  >
+                    {status}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* UPDATE LOCATION */}
+
+            <div>
+              <label className="block text-sm font-black text-slate-600 mb-2">
+                Location
+              </label>
+
+              <input
+                value={updateForm.location}
+                onChange={(e) =>
+                  setUpdateForm({
+                    ...updateForm,
+                    location:
+                      e.target.value,
+                  })
+                }
+                placeholder="e.g. Abuja Sorting Center"
+                className={inputClass()}
+              />
+            </div>
+
+            {/* UPDATE MESSAGE */}
+
+            <div>
+              <label className="block text-sm font-black text-slate-600 mb-2">
+                Message
+              </label>
+
+              <input
+                value={updateForm.message}
+                onChange={(e) =>
+                  setUpdateForm({
+                    ...updateForm,
+                    message:
+                      e.target.value,
+                  })
+                }
+                placeholder="Package arrived at facility"
+                className={inputClass()}
+              />
+            </div>
+          </div>
+
+          <button
+            onClick={addTrackingUpdate}
+            disabled={addingUpdate}
+            className="mt-6 inline-flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white px-7 py-3.5 rounded-xl font-black transition"
+          >
+            <Plus size={19} />
+
+            {addingUpdate
+              ? "Adding..."
+              : "Add Tracking Update"}
+          </button>
+        </div>
+
+        {/* TRACKING HISTORY */}
+
+        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 md:p-8 mt-7">
+          <div>
+            <h2 className="text-2xl font-black text-blue-900">
+              Tracking History
+            </h2>
+
+            <p className="text-slate-500 mt-1">
+              Manage the events customers see on the tracking page.
+            </p>
+          </div>
 
           {updates.length === 0 ? (
-
             <div className="bg-slate-50 rounded-2xl p-8 text-center mt-6">
-
               <Clock
                 size={35}
                 className="text-slate-400 mx-auto"
@@ -689,25 +1090,21 @@ export default function AdminShipmentPage() {
               <p className="font-black text-slate-600 mt-4">
                 No tracking updates yet.
               </p>
-
             </div>
-
           ) : (
-
-            <div className="mt-7 space-y-5">
-
-              {updates.map(
-                (update) => (
-
-                  <div
-                    key={update.id}
-                    className="border border-slate-200 rounded-2xl p-6"
-                  >
-
-                    <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+            <div className="mt-7 space-y-4">
+              {updates.map((update) => (
+                <div
+                  key={update.id}
+                  className="border border-slate-200 rounded-2xl p-5"
+                >
+                  <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                    <div className="flex gap-4">
+                      <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
+                        {statusIcon(update.status)}
+                      </div>
 
                       <div>
-
                         <span
                           className={`inline-flex px-3 py-1.5 rounded-full text-sm font-black ${statusStyle(
                             update.status
@@ -717,45 +1114,47 @@ export default function AdminShipmentPage() {
                         </span>
 
                         {update.location && (
-                          <p className="flex items-center gap-2 text-sm text-slate-500 mt-4">
-                            <MapPin
-                              size={16}
-                            />
+                          <p className="flex items-center gap-2 text-sm text-slate-500 mt-3">
+                            <MapPin size={16} />
                             {update.location}
                           </p>
                         )}
 
-                        <p className="font-semibold mt-4">
+                        <p className="font-semibold text-slate-700 mt-3">
                           {update.message}
                         </p>
 
+                        <p className="text-xs text-slate-400 mt-3">
+                          {update.created_at
+                            ? new Date(
+                                update.created_at
+                              ).toLocaleString()
+                            : "Unknown time"}
+                        </p>
                       </div>
-
-                      <p className="text-xs text-slate-400 whitespace-nowrap">
-                        {update.created_at
-                          ? new Date(
-                              update.created_at
-                            ).toLocaleString()
-                          : "Unknown time"}
-                      </p>
-
                     </div>
 
+                    <button
+                      onClick={() =>
+                        deleteTrackingUpdate(
+                          update.id
+                        )
+                      }
+                      className="inline-flex items-center justify-center gap-2 text-red-600 hover:text-red-700 font-black px-4 py-2 rounded-lg hover:bg-red-50 transition"
+                    >
+                      <Trash2 size={17} />
+                      Delete
+                    </button>
                   </div>
-
-                )
-              )}
-
+                </div>
+              ))}
             </div>
-
           )}
-
         </div>
 
         {/* ACTIONS */}
 
-        <div className="flex flex-col sm:flex-row gap-4 mt-8">
-
+        <div className="flex flex-col sm:flex-row gap-4 mt-7">
           <Link
             href={`/track?tracking=${encodeURIComponent(
               shipment.tracking_number
@@ -767,16 +1166,14 @@ export default function AdminShipmentPage() {
           </Link>
 
           <Link
-            href="/admin"
-            className="flex-1 inline-flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white px-6 py-4 rounded-xl font-black transition"
+            href="/admin/shipments"
+            className="flex-1 inline-flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-800 text-white px-6 py-4 rounded-xl font-black transition"
           >
-            Manage Shipment
+            <ArrowLeft size={20} />
+            Back to Shipments
           </Link>
-
         </div>
-
       </section>
-
     </main>
   );
 }
