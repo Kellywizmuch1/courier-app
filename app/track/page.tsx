@@ -1,14 +1,69 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import {
+  Search,
+  Package,
+  MapPin,
+  Truck,
+  CalendarDays,
+  Clock,
+  CheckCircle2,
+  AlertTriangle,
+  Navigation,
+  ArrowRight,
+  ShieldCheck,
+} from "lucide-react";
 import { supabase } from "../../lib/supabase";
+
+type Shipment = {
+  id?: number;
+  tracking_number?: string | null;
+
+  sender_name?: string | null;
+  receiver_name?: string | null;
+
+  pickup_address?: string | null;
+  delivery_address?: string | null;
+
+  status?: string | null;
+
+  current_location?: string | null;
+  next_location?: string | null;
+
+  estimated_delivery?: string | null;
+  last_updated?: string | null;
+  created_at?: string | null;
+
+  package_type?: string | null;
+  package_description?: string | null;
+  package_weight?: number | null;
+  package_quantity?: number | null;
+  package_value?: number | null;
+
+  special_handling?: string | null;
+};
+
+type ShipmentUpdate = {
+  id: number;
+  booking_id?: number;
+  status?: string | null;
+  location?: string | null;
+  message?: string | null;
+  created_at?: string | null;
+};
+
+type TrackingResponse = {
+  shipment: Shipment;
+  history: ShipmentUpdate[];
+};
 
 export default function TrackPage() {
   const [trackingNumber, setTrackingNumber] = useState("");
-  const [result, setResult] = useState<any>(null);
-  const [error, setError] = useState<any>(null);
+  const [result, setResult] = useState<TrackingResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   async function handleSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -16,211 +71,195 @@ export default function TrackPage() {
     const tracking = trackingNumber.trim().toUpperCase();
 
     if (!tracking) {
+      setErrorMessage("Please enter a tracking number.");
       return;
     }
 
     setLoading(true);
     setSearched(true);
     setResult(null);
-    setError(null);
-
-    console.log("================================");
-    console.log("TRACKING SEARCH STARTED");
-    console.log("TRACKING NUMBER:", tracking);
+    setErrorMessage("");
 
     try {
-      console.log("Calling RPC:");
-      console.log("get_public_shipment_v2");
-
-      const response = await supabase.rpc(
+      const { data, error } = await supabase.rpc(
         "get_public_shipment_v2",
         {
           tracking_number_input: tracking,
         }
       );
 
-      console.log("FULL SUPABASE RESPONSE:");
-      console.log(response);
-
-      console.log("RPC DATA:");
-      console.log(response.data);
-
-      console.log("RPC ERROR:");
-      console.log(response.error);
-
-      if (response.error) {
-        console.error(
-          "PUBLIC TRACKING RPC ERROR:",
-          response.error
+      if (error) {
+        console.error("TRACKING ERROR:", error);
+        setErrorMessage(
+          "We were unable to retrieve this shipment. Please try again."
         );
-
-        setError(response.error);
         return;
       }
 
-      if (response.data === null || response.data === undefined) {
-        console.log("RPC returned NULL/UNDEFINED");
-
-        setError({
-          message: "The RPC returned no data.",
-          tracking_number: tracking,
-        });
-
+      if (!data) {
+        setErrorMessage(
+          "No shipment was found with that tracking number."
+        );
         return;
       }
 
-      /*
-       * IMPORTANT:
-       * Supabase can return the RPC result as either
-       * an object or an array depending on how the
-       * PostgreSQL function is defined.
-       */
+      let normalizedData: any = data;
 
-      let normalizedResult = response.data;
-
-      if (Array.isArray(response.data)) {
-        console.log(
-          "RPC DATA IS AN ARRAY:",
-          response.data
-        );
-
-        if (response.data.length === 0) {
-          setError({
-            message:
-              "The RPC returned an empty array.",
-            tracking_number: tracking,
-          });
-
+      if (Array.isArray(data)) {
+        if (data.length === 0) {
+          setErrorMessage(
+            "No shipment was found with that tracking number."
+          );
           return;
         }
 
-        /*
-         * If PostgreSQL returned:
-         *
-         * [
-         *   {
-         *     shipment: {...},
-         *     history: [...]
-         *   }
-         * ]
-         *
-         * use the first object.
-         */
-        normalizedResult = response.data[0];
+        normalizedData = data[0];
       }
 
-      console.log(
-        "NORMALIZED RESULT:",
-        normalizedResult
-      );
+      if (!normalizedData?.shipment) {
+        setErrorMessage(
+          "No shipment was found with that tracking number."
+        );
+        return;
+      }
 
-      setResult(normalizedResult);
+      const history = Array.isArray(normalizedData.history)
+        ? [...normalizedData.history].sort((a, b) => {
+            const first = a.created_at
+              ? new Date(a.created_at).getTime()
+              : 0;
 
+            const second = b.created_at
+              ? new Date(b.created_at).getTime()
+              : 0;
+
+            return second - first;
+          })
+        : [];
+
+      setResult({
+        shipment: normalizedData.shipment,
+        history,
+      });
     } catch (err) {
-      console.error(
-        "RPC EXCEPTION:",
-        err
+      console.error("TRACKING EXCEPTION:", err);
+
+      setErrorMessage(
+        "Something went wrong while tracking this shipment."
       );
-
-      setError(err);
-
     } finally {
       setLoading(false);
-
-      console.log(
-        "TRACKING SEARCH FINISHED"
-      );
-
-      console.log("================================");
     }
   }
 
   const shipment = result?.shipment;
-
-  const history = Array.isArray(result?.history)
-    ? result.history
-    : [];
+  const history = result?.history || [];
 
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-900">
+    <main className="min-h-screen bg-slate-100 text-slate-900">
 
-      {/* HEADER */}
+      {/* TOP NAVIGATION */}
 
       <header className="bg-blue-950 text-white">
-
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-5">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-5">
 
           <div className="flex items-center justify-between">
 
             <div className="flex items-center gap-3">
 
-              <div className="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center">
-
-                <span className="font-black text-xl">
-                  A
-                </span>
-
+              <div className="w-11 h-11 rounded-xl bg-orange-500 flex items-center justify-center shadow-lg">
+                <Package size={23} />
               </div>
 
               <div>
-
                 <p className="font-black text-lg">
                   Atlas Express
                 </p>
 
                 <p className="text-xs text-blue-200">
-                  Shipment Tracking
+                  Reliable Shipment Tracking
                 </p>
-
               </div>
 
+            </div>
+
+            <div className="hidden sm:flex items-center gap-2 text-sm text-blue-200">
+              <ShieldCheck size={17} />
+              Secure Tracking
             </div>
 
           </div>
 
         </div>
-
       </header>
 
 
-      {/* SEARCH */}
+      {/* HERO / SEARCH */}
 
-      <section className="bg-white border-b border-slate-200">
+      <section className="bg-blue-950 text-white">
 
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-10 pb-14">
 
-          <h1 className="text-3xl font-black text-blue-950">
-            Track a Shipment
-          </h1>
+          <div className="max-w-3xl">
 
-          <p className="text-slate-600 mt-2">
-            Enter your tracking number below.
-          </p>
+            <p className="text-orange-400 text-sm font-black uppercase tracking-widest">
+              Shipment Tracking
+            </p>
+
+            <h1 className="text-4xl sm:text-5xl font-black mt-3">
+              Track your shipment
+            </h1>
+
+            <p className="text-blue-200 text-base sm:text-lg mt-4 leading-relaxed">
+              Enter your tracking number to see the latest
+              location, shipment status, estimated delivery,
+              and tracking history.
+            </p>
+
+          </div>
+
 
           <form
             onSubmit={handleSearch}
-            className="mt-6 flex flex-col sm:flex-row gap-3 max-w-3xl"
+            className="mt-8 max-w-4xl"
           >
 
-            <input
-              type="text"
-              value={trackingNumber}
-              onChange={(event) =>
-                setTrackingNumber(event.target.value)
-              }
-              placeholder="TRK544335"
-              className="flex-1 border border-slate-300 rounded-xl px-4 py-3.5 text-slate-900 font-semibold outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-100"
-            />
+            <div className="bg-white rounded-2xl p-2 shadow-2xl flex flex-col sm:flex-row gap-2">
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="bg-orange-500 hover:bg-orange-600 disabled:opacity-60 text-white px-7 py-3.5 rounded-xl font-black"
-            >
-              {loading
-                ? "Searching..."
-                : "Track Shipment"}
-            </button>
+              <div className="relative flex-1">
+
+                <Search
+                  size={21}
+                  className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+                />
+
+                <input
+                  type="text"
+                  value={trackingNumber}
+                  onChange={(event) =>
+                    setTrackingNumber(event.target.value)
+                  }
+                  placeholder="Enter tracking number"
+                  className="w-full rounded-xl px-12 py-4 text-slate-900 font-bold outline-none"
+                />
+
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="bg-orange-500 hover:bg-orange-600 disabled:opacity-60 text-white px-8 py-4 rounded-xl font-black transition inline-flex items-center justify-center gap-2"
+              >
+
+                <Search size={19} />
+
+                {loading
+                  ? "Tracking..."
+                  : "Track Shipment"}
+
+              </button>
+
+            </div>
 
           </form>
 
@@ -229,20 +268,26 @@ export default function TrackPage() {
       </section>
 
 
-      {/* RESULTS */}
+      {/* MAIN CONTENT */}
 
-      <section className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+      <section className="max-w-6xl mx-auto px-4 sm:px-6 py-10">
+
 
         {/* LOADING */}
 
         {loading && (
 
-          <div className="bg-white border border-slate-200 rounded-2xl p-10 text-center">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-12 text-center">
 
-            <div className="w-10 h-10 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto" />
+            <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto" />
 
-            <p className="font-bold text-slate-700 mt-4">
-              Searching for shipment...
+            <h2 className="font-black text-xl mt-5 text-blue-950">
+              Locating your shipment
+            </h2>
+
+            <p className="text-slate-500 mt-2">
+              Please wait while we retrieve the latest
+              tracking information.
             </p>
 
           </div>
@@ -252,257 +297,397 @@ export default function TrackPage() {
 
         {/* ERROR */}
 
-        {!loading && error && (
+        {!loading && errorMessage && (
 
-          <div className="bg-red-50 border border-red-200 rounded-2xl p-6">
+          <div className="bg-white rounded-3xl border border-red-200 shadow-sm overflow-hidden">
 
-            <h2 className="text-xl font-black text-red-800">
-              Tracking Request Result
-            </h2>
+            <div className="bg-red-50 p-7">
 
-            <p className="text-sm text-red-700 mt-2">
-              Supabase responded, but the shipment
-              could not be loaded.
-            </p>
+              <div className="flex items-start gap-4">
 
-            <pre className="mt-5 bg-white border border-red-200 rounded-xl p-4 text-xs text-red-900 whitespace-pre-wrap overflow-auto">
-              {JSON.stringify(
-                error,
-                null,
-                2
-              )}
-            </pre>
+                <div className="w-11 h-11 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                  <AlertTriangle
+                    size={22}
+                    className="text-red-600"
+                  />
+                </div>
 
-          </div>
+                <div>
 
-        )}
+                  <h2 className="text-xl font-black text-red-900">
+                    Tracking unavailable
+                  </h2>
 
-
-        {/* SHIPMENT FOUND */}
-
-        {!loading && result && (
-
-          <div className="space-y-5">
-
-            <div className="bg-green-50 border border-green-200 rounded-2xl p-6">
-
-              <h2 className="text-xl font-black text-green-800">
-                Shipment Found
-              </h2>
-
-              <p className="text-sm text-green-700 mt-2">
-                Supabase successfully returned the
-                shipment data.
-              </p>
-
-            </div>
-
-
-            {/* SHIPMENT */}
-
-            {shipment && (
-
-              <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
-
-                <div className="p-6">
-
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-
-                    <div>
-
-                      <p className="text-xs uppercase tracking-widest font-black text-slate-500">
-                        Tracking Number
-                      </p>
-
-                      <h2 className="text-3xl font-black text-blue-950 mt-1">
-                        {shipment.tracking_number ||
-                          "Unavailable"}
-                      </h2>
-
-                    </div>
-
-                    <span className="bg-green-100 text-green-700 px-4 py-2 rounded-full font-black w-fit">
-                      {shipment.status ||
-                        "Pending"}
-                    </span>
-
-                  </div>
-
-
-                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
-
-                    <Info
-                      title="Sender"
-                      value={
-                        shipment.sender_name
-                      }
-                    />
-
-                    <Info
-                      title="Receiver"
-                      value={
-                        shipment.receiver_name
-                      }
-                    />
-
-                    <Info
-                      title="Status"
-                      value={
-                        shipment.status
-                      }
-                    />
-
-                    <Info
-                      title="Current Location"
-                      value={
-                        shipment.current_location
-                      }
-                    />
-
-                    <Info
-                      title="Next Location"
-                      value={
-                        shipment.next_location
-                      }
-                    />
-
-                    <Info
-                      title="Estimated Delivery"
-                      value={
-                        shipment.estimated_delivery
-                      }
-                    />
-
-                    <Info
-                      title="Pickup Address"
-                      value={
-                        shipment.pickup_address
-                      }
-                    />
-
-                    <Info
-                      title="Delivery Address"
-                      value={
-                        shipment.delivery_address
-                      }
-                    />
-
-                    <Info
-                      title="Package Type"
-                      value={
-                        shipment.package_type
-                      }
-                    />
-
-                    <Info
-                      title="Package Weight"
-                      value={
-                        shipment.package_weight !==
-                        null &&
-                        shipment.package_weight !==
-                        undefined
-                          ? `${shipment.package_weight} kg`
-                          : null
-                      }
-                    />
-
-                    <Info
-                      title="Quantity"
-                      value={
-                        shipment.package_quantity
-                      }
-                    />
-
-                  </div>
+                  <p className="text-red-700 mt-2">
+                    {errorMessage}
+                  </p>
 
                 </div>
 
               </div>
 
-            )}
+            </div>
+
+          </div>
+
+        )}
 
 
-            {/* HISTORY */}
+        {/* INITIAL STATE */}
 
-            <div className="bg-white border border-slate-200 rounded-2xl">
+        {!loading &&
+          !searched &&
+          !errorMessage && (
 
-              <div className="p-6 border-b border-slate-200">
+            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-10">
 
-                <h2 className="text-xl font-black text-blue-950">
-                  Tracking History
+              <div className="max-w-2xl mx-auto text-center">
+
+                <div className="w-16 h-16 rounded-2xl bg-blue-50 flex items-center justify-center mx-auto">
+
+                  <Package
+                    size={31}
+                    className="text-blue-800"
+                  />
+
+                </div>
+
+                <h2 className="text-2xl font-black text-blue-950 mt-6">
+                  Ready to track your package?
                 </h2>
 
-                <p className="text-sm text-slate-600 mt-1">
-                  Latest shipment activity.
+                <p className="text-slate-600 mt-3">
+                  Enter your tracking number above to view
+                  the current status and complete shipment
+                  history.
                 </p>
 
               </div>
 
-              <div className="p-6">
+            </div>
+
+          )}
+
+
+        {/* SHIPMENT RESULT */}
+
+        {!loading && shipment && (
+
+          <div className="space-y-6">
+
+
+            {/* TRACKING HEADER */}
+
+            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+
+              <div className="bg-slate-950 text-white px-6 sm:px-8 py-7">
+
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-5">
+
+                  <div>
+
+                    <p className="text-orange-400 text-xs font-black uppercase tracking-widest">
+                      Tracking Number
+                    </p>
+
+                    <h2 className="text-3xl sm:text-4xl font-black mt-2 tracking-tight">
+                      {shipment.tracking_number ||
+                        "Unavailable"}
+                    </h2>
+
+                  </div>
+
+                  <StatusBadge
+                    status={shipment.status}
+                  />
+
+                </div>
+
+              </div>
+
+
+              {/* SUMMARY */}
+
+              <div className="p-6 sm:p-8">
+
+                <div className="grid md:grid-cols-3 gap-5">
+
+
+                  <SummaryCard
+                    icon={
+                      <MapPin
+                        size={22}
+                        className="text-orange-600"
+                      />
+                    }
+                    label="Current Location"
+                    value={
+                      shipment.current_location ||
+                      "Awaiting update"
+                    }
+                  />
+
+
+                  <SummaryCard
+                    icon={
+                      <Navigation
+                        size={22}
+                        className="text-blue-700"
+                      />
+                    }
+                    label="Next Location"
+                    value={
+                      shipment.next_location ||
+                      "Not available"
+                    }
+                  />
+
+
+                  <SummaryCard
+                    icon={
+                      <CalendarDays
+                        size={22}
+                        className="text-green-600"
+                      />
+                    }
+                    label="Estimated Delivery"
+                    value={
+                      formatDate(
+                        shipment.estimated_delivery
+                      ) || "Not available"
+                    }
+                  />
+
+                </div>
+
+
+                {/* ROUTE */}
+
+                <div className="mt-6 grid md:grid-cols-2 gap-5">
+
+                  <RouteCard
+                    label="From"
+                    value={
+                      shipment.pickup_address ||
+                      "Not available"
+                    }
+                  />
+
+                  <RouteCard
+                    label="To"
+                    value={
+                      shipment.delivery_address ||
+                      "Not available"
+                    }
+                  />
+
+                </div>
+
+              </div>
+
+            </div>
+
+
+            {/* TRACKING PROGRESS */}
+
+            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+
+              <div className="px-6 sm:px-8 py-6 border-b border-slate-200">
+
+                <p className="text-orange-500 text-xs font-black uppercase tracking-widest">
+                  Shipment Progress
+                </p>
+
+                <h2 className="text-2xl font-black text-blue-950 mt-1">
+                  Tracking History
+                </h2>
+
+                <p className="text-slate-500 text-sm mt-1">
+                  Latest shipment activity and location
+                  updates.
+                </p>
+
+              </div>
+
+
+              <div className="p-6 sm:p-8">
 
                 {history.length === 0 ? (
 
-                  <p className="text-slate-600">
-                    No tracking history available.
-                  </p>
+                  <div className="py-10 text-center">
+
+                    <Clock
+                      size={38}
+                      className="text-slate-300 mx-auto"
+                    />
+
+                    <h3 className="font-black text-lg text-slate-700 mt-4">
+                      No tracking updates yet
+                    </h3>
+
+                    <p className="text-sm text-slate-500 mt-2">
+                      Shipment activity will appear here
+                      when updates are recorded.
+                    </p>
+
+                  </div>
 
                 ) : (
 
-                  <div className="space-y-4">
+                  <div className="relative">
 
-                    {history.map(
-                      (
-                        update: any
-                      ) => (
+                    {/* TIMELINE LINE */}
 
-                        <div
-                          key={update.id}
-                          className="border border-slate-200 rounded-xl p-5"
-                        >
+                    <div className="absolute left-[19px] top-5 bottom-5 w-0.5 bg-slate-200" />
 
-                          <div className="flex flex-col sm:flex-row sm:justify-between gap-3">
 
-                            <div>
+                    <div className="space-y-8">
 
-                              <h3 className="font-black text-slate-900">
-                                {update.status ||
-                                  "Shipment Update"}
-                              </h3>
+                      {history.map(
+                        (update, index) => {
 
-                              {update.location && (
+                          const isFirst =
+                            index === 0;
 
-                                <p className="text-sm text-blue-700 font-semibold mt-1">
-                                  {update.location}
-                                </p>
+                          const isProblem =
+                            isProblemStatus(
+                              update.status
+                            );
 
-                              )}
+                          const isCompleted =
+                            isCompletedStatus(
+                              update.status
+                            );
+
+                          return (
+
+                            <div
+                              key={update.id}
+                              className="relative flex gap-5"
+                            >
+
+                              {/* TIMELINE ICON */}
+
+                              <div
+                                className={`relative z-10 w-10 h-10 rounded-full border-4 border-white shadow-sm flex items-center justify-center shrink-0 ${
+                                  isProblem
+                                    ? "bg-orange-100"
+                                    : isCompleted
+                                    ? "bg-green-100"
+                                    : "bg-blue-50"
+                                }`}
+                              >
+
+                                {isProblem ? (
+
+                                  <AlertTriangle
+                                    size={17}
+                                    className="text-orange-600"
+                                  />
+
+                                ) : isCompleted ? (
+
+                                  <CheckCircle2
+                                    size={18}
+                                    className="text-green-600"
+                                  />
+
+                                ) : (
+
+                                  <Truck
+                                    size={17}
+                                    className="text-blue-700"
+                                  />
+
+                                )}
+
+                              </div>
+
+
+                              {/* CONTENT */}
+
+                              <div className="flex-1 pb-1">
+
+                                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+
+                                  <div>
+
+                                    <div className="flex flex-wrap items-center gap-2">
+
+                                      <h3
+                                        className={`font-black text-lg ${
+                                          isProblem
+                                            ? "text-orange-700"
+                                            : "text-slate-900"
+                                        }`}
+                                      >
+                                        {update.status ||
+                                          "Shipment Update"}
+                                      </h3>
+
+                                      {isFirst && (
+
+                                        <span className="text-xs font-black bg-blue-100 text-blue-700 px-2.5 py-1 rounded-full">
+                                          Latest
+                                        </span>
+
+                                      )}
+
+                                    </div>
+
+                                  </div>
+
+
+                                  {update.created_at && (
+
+                                    <span className="text-xs font-semibold text-slate-400 whitespace-nowrap">
+
+                                      {formatDateTime(
+                                        update.created_at
+                                      )}
+
+                                    </span>
+
+                                  )}
+
+                                </div>
+
+
+                                {update.location && (
+
+                                  <div className="flex items-center gap-2 mt-2">
+
+                                    <MapPin
+                                      size={15}
+                                      className="text-orange-500"
+                                    />
+
+                                    <span className="text-sm font-bold text-slate-700">
+                                      {update.location}
+                                    </span>
+
+                                  </div>
+
+                                )}
+
+
+                                {update.message && (
+
+                                  <p className="text-sm text-slate-600 mt-2 leading-relaxed">
+                                    {update.message}
+                                  </p>
+
+                                )}
+
+                              </div>
 
                             </div>
 
-                            {update.created_at && (
+                          );
+                        }
+                      )}
 
-                              <span className="text-xs text-slate-500 font-semibold">
-                                {new Date(
-                                  update.created_at
-                                ).toLocaleString()}
-                              </span>
-
-                            )}
-
-                          </div>
-
-                          {update.message && (
-
-                            <p className="text-sm text-slate-700 mt-3">
-                              {update.message}
-                            </p>
-
-                          )}
-
-                        </div>
-
-                      )
-                    )}
+                    </div>
 
                   </div>
 
@@ -513,79 +698,189 @@ export default function TrackPage() {
             </div>
 
 
-            {/* RAW RESPONSE */}
+            {/* SHIPMENT DETAILS */}
 
-            <div className="bg-slate-900 rounded-2xl p-6">
+            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
 
-              <h2 className="text-white font-black">
-                Database Response
-              </h2>
+              <div className="px-6 sm:px-8 py-6 border-b border-slate-200">
 
-              <p className="text-slate-400 text-xs mt-1">
-                This is exactly what the browser
-                received from get_public_shipment_v2.
-              </p>
+                <p className="text-orange-500 text-xs font-black uppercase tracking-widest">
+                  Shipment Details
+                </p>
 
-              <pre className="mt-4 text-xs text-green-300 whitespace-pre-wrap overflow-auto max-h-[600px]">
-                {JSON.stringify(
-                  result,
-                  null,
-                  2
+                <h2 className="text-2xl font-black text-blue-950 mt-1">
+                  Package Information
+                </h2>
+
+              </div>
+
+
+              <div className="p-6 sm:p-8">
+
+                <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+
+                  <Detail
+                    label="Package Type"
+                    value={
+                      shipment.package_type
+                    }
+                  />
+
+                  <Detail
+                    label="Quantity"
+                    value={
+                      shipment.package_quantity
+                    }
+                  />
+
+                  <Detail
+                    label="Weight"
+                    value={
+                      shipment.package_weight !==
+                      null &&
+                      shipment.package_weight !==
+                      undefined
+                        ? `${shipment.package_weight} kg`
+                        : null
+                    }
+                  />
+
+                  <Detail
+                    label="Package Value"
+                    value={
+                      shipment.package_value !==
+                      null &&
+                      shipment.package_value !==
+                      undefined
+                        ? `$${shipment.package_value}`
+                        : null
+                    }
+                  />
+
+                </div>
+
+
+                {shipment.package_description && (
+
+                  <div className="mt-4 bg-slate-50 rounded-2xl p-5">
+
+                    <p className="text-xs uppercase tracking-wider font-black text-slate-500">
+                      Description
+                    </p>
+
+                    <p className="text-sm font-semibold text-slate-700 mt-2">
+                      {shipment.package_description}
+                    </p>
+
+                  </div>
+
                 )}
-              </pre>
+
+
+                {shipment.special_handling && (
+
+                  <div className="mt-4 bg-orange-50 border border-orange-100 rounded-2xl p-5">
+
+                    <p className="text-xs uppercase tracking-wider font-black text-orange-600">
+                      Special Handling
+                    </p>
+
+                    <p className="text-sm font-semibold text-orange-800 mt-2">
+                      {shipment.special_handling}
+                    </p>
+
+                  </div>
+
+                )}
+
+              </div>
 
             </div>
+
+
+            {/* SHIPMENT PARTIES */}
+
+            <div className="grid md:grid-cols-2 gap-6">
+
+              <PersonCard
+                title="Sender"
+                name={
+                  shipment.sender_name
+                }
+                address={
+                  shipment.pickup_address
+                }
+              />
+
+              <PersonCard
+                title="Recipient"
+                name={
+                  shipment.receiver_name
+                }
+                address={
+                  shipment.delivery_address
+                }
+              />
+
+            </div>
+
+
+            {/* LAST UPDATED */}
+
+            {shipment.last_updated && (
+
+              <div className="flex items-center justify-center gap-2 text-sm text-slate-500">
+
+                <Clock size={15} />
+
+                <span>
+                  Last updated{" "}
+                  {formatDateTime(
+                    shipment.last_updated
+                  )}
+                </span>
+
+              </div>
+
+            )}
 
           </div>
 
         )}
 
-
-        {/* NOTHING */}
-
-        {!loading &&
-          !result &&
-          !error &&
-          searched && (
-
-            <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-8 text-center">
-
-              <h2 className="text-xl font-black text-yellow-800">
-                No shipment data returned
-              </h2>
-
-              <p className="text-sm text-yellow-700 mt-2">
-                The database function completed but
-                returned no shipment.
-              </p>
-
-            </div>
-
-          )}
-
-
-        {/* INITIAL */}
-
-        {!loading &&
-          !result &&
-          !error &&
-          !searched && (
-
-            <div className="bg-white border border-slate-200 rounded-2xl p-10 text-center">
-
-              <p className="font-bold text-slate-600">
-                Enter a tracking number to begin.
-              </p>
-
-              <p className="text-sm text-slate-400 mt-2">
-                Try TRK544335
-              </p>
-
-            </div>
-
-          )}
-
       </section>
+
+
+      {/* FOOTER */}
+
+      <footer className="bg-blue-950 text-blue-200 mt-10">
+
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+
+            <div>
+
+              <p className="text-white font-black">
+                Atlas Express
+              </p>
+
+              <p className="text-xs mt-1">
+                Professional shipment tracking
+              </p>
+
+            </div>
+
+            <p className="text-xs">
+              Tracking information is provided for
+              informational purposes.
+            </p>
+
+          </div>
+
+        </div>
+
+      </footer>
 
     </main>
   );
@@ -593,21 +888,86 @@ export default function TrackPage() {
 
 
 /* =========================================================
-   INFO COMPONENT
+   COMPONENTS
 ========================================================= */
 
-function Info({
-  title,
+function SummaryCard({
+  icon,
+  label,
   value,
 }: {
-  title: string;
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="border border-slate-200 rounded-2xl p-5">
+
+      <div className="flex items-center gap-3">
+
+        <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center">
+          {icon}
+        </div>
+
+        <p className="text-xs uppercase tracking-wider font-black text-slate-500">
+          {label}
+        </p>
+
+      </div>
+
+      <p className="font-black text-slate-900 mt-4">
+        {value}
+      </p>
+
+    </div>
+  );
+}
+
+
+function RouteCard({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="bg-slate-50 rounded-2xl p-5">
+
+      <div className="flex items-center gap-2">
+
+        <MapPin
+          size={17}
+          className="text-orange-500"
+        />
+
+        <p className="text-xs uppercase tracking-wider font-black text-slate-500">
+          {label}
+        </p>
+
+      </div>
+
+      <p className="font-black text-slate-900 mt-3">
+        {value}
+      </p>
+
+    </div>
+  );
+}
+
+
+function Detail({
+  label,
+  value,
+}: {
+  label: string;
   value: any;
 }) {
   return (
-    <div className="bg-slate-50 rounded-xl p-4">
+    <div className="bg-slate-50 rounded-2xl p-5">
 
-      <p className="text-xs uppercase tracking-wide font-black text-slate-500">
-        {title}
+      <p className="text-xs uppercase tracking-wider font-black text-slate-500">
+        {label}
       </p>
 
       <p className="font-black text-slate-900 mt-2 break-words">
@@ -615,9 +975,179 @@ function Info({
         value !== undefined &&
         String(value).trim() !== ""
           ? String(value)
-          : "Not available"}
+          : "Not provided"}
       </p>
 
     </div>
+  );
+}
+
+
+function PersonCard({
+  title,
+  name,
+  address,
+}: {
+  title: string;
+  name?: string | null;
+  address?: string | null;
+}) {
+  return (
+    <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6">
+
+      <p className="text-orange-500 text-xs font-black uppercase tracking-widest">
+        {title}
+      </p>
+
+      <h3 className="text-xl font-black text-blue-950 mt-2">
+        {name || "Not provided"}
+      </h3>
+
+      <div className="flex items-start gap-2 mt-4 text-sm text-slate-600">
+
+        <MapPin
+          size={17}
+          className="text-slate-400 mt-0.5 shrink-0"
+        />
+
+        <span>
+          {address || "Address not available"}
+        </span>
+
+      </div>
+
+    </div>
+  );
+}
+
+
+function StatusBadge({
+  status,
+}: {
+  status?: string | null;
+}) {
+  const value =
+    status?.trim().toLowerCase() || "pending";
+
+  let classes =
+    "bg-slate-100 text-slate-700";
+
+  if (value === "delivered") {
+    classes =
+      "bg-green-100 text-green-700";
+  } else if (
+    value === "in transit" ||
+    value === "picked up"
+  ) {
+    classes =
+      "bg-blue-100 text-blue-700";
+  } else if (value === "delayed") {
+    classes =
+      "bg-orange-100 text-orange-700";
+  } else if (
+    value === "delivery issue"
+  ) {
+    classes =
+      "bg-red-100 text-red-700";
+  } else if (value === "confirmed") {
+    classes =
+      "bg-yellow-100 text-yellow-700";
+  }
+
+  return (
+    <span
+      className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-black ${classes}`}
+    >
+      <span className="w-2 h-2 rounded-full bg-current" />
+
+      {status || "Pending"}
+    </span>
+  );
+}
+
+
+/* =========================================================
+   HELPERS
+========================================================= */
+
+function normalizeStatus(
+  status?: string | null
+) {
+  return status?.trim().toLowerCase() || "";
+}
+
+
+function isCompletedStatus(
+  status?: string | null
+) {
+  const value = normalizeStatus(status);
+
+  return (
+    value === "delivered" ||
+    value === "picked up" ||
+    value === "in transit" ||
+    value === "confirmed"
+  );
+}
+
+
+function isProblemStatus(
+  status?: string | null
+) {
+  const value = normalizeStatus(status);
+
+  return (
+    value === "delayed" ||
+    value === "delivery issue"
+  );
+}
+
+
+function formatDate(
+  value?: string | null
+) {
+  if (!value) {
+    return "";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleDateString(
+    undefined,
+    {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    }
+  );
+}
+
+
+function formatDateTime(
+  value?: string | null
+) {
+  if (!value) {
+    return "";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleString(
+    undefined,
+    {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    }
   );
 }

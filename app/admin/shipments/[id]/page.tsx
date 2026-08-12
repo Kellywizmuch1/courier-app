@@ -21,19 +21,24 @@ import { supabase } from "../../../../lib/supabase";
 
 type Booking = {
   id: number;
-  user_id: string;
-  tracking_number: string;
-  sender_name: string;
-  receiver_name: string;
-  pickup_address: string;
-  delivery_address: string;
-  phone_number: string;
-  status: string;
-  current_location: string;
-  next_location: string;
-  estimated_delivery: string;
-  last_updated: string;
-  created_at?: string;
+  user_id: string | null;
+  tracking_number: string | null;
+
+  sender_name: string | null;
+  receiver_name: string | null;
+
+  pickup_address: string | null;
+  delivery_address: string | null;
+
+  phone_number: string | null;
+
+  status: string | null;
+  current_location: string | null;
+  next_location: string | null;
+
+  estimated_delivery: string | null;
+  last_updated: string | null;
+  created_at?: string | null;
 
   package_type?: string | null;
   package_description?: string | null;
@@ -62,10 +67,6 @@ type ShipmentUpdate = {
   created_at: string;
 };
 
-/*
- * IMPORTANT:
- * Confirmed is now included in the shipment workflow.
- */
 const STATUS_OPTIONS = [
   "Pending",
   "Confirmed",
@@ -82,24 +83,28 @@ export default function AdminShipmentPage() {
 
   const shipmentId = String(params.id);
 
-  const [shipment, setShipment] =
-    useState<Booking | null>(null);
-
-  const [updates, setUpdates] =
-    useState<ShipmentUpdate[]>([]);
+  const [shipment, setShipment] = useState<Booking | null>(null);
+  const [updates, setUpdates] = useState<ShipmentUpdate[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [addingUpdate, setAddingUpdate] =
-    useState(false);
-  const [refreshing, setRefreshing] =
-    useState(false);
+  const [addingUpdate, setAddingUpdate] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const [form, setForm] = useState({
     status: "",
+
+    sender_name: "",
+    receiver_name: "",
+    phone_number: "",
+
+    pickup_address: "",
+    delivery_address: "",
+
     current_location: "",
     next_location: "",
     estimated_delivery: "",
+
     delivery_issue: "",
     delivery_update: "",
 
@@ -134,17 +139,10 @@ export default function AdminShipmentPage() {
       return;
     }
 
-    const email =
-      session.user.email?.toLowerCase();
+    const email = session.user.email?.toLowerCase();
 
-    if (
-      email !==
-      "michealkellywiz@gmail.com"
-    ) {
-      alert(
-        "You do not have permission to access this page."
-      );
-
+    if (email !== "michealkellywiz@gmail.com") {
+      alert("You do not have permission to access this page.");
       router.replace("/dashboard");
       return;
     }
@@ -177,10 +175,7 @@ export default function AdminShipmentPage() {
       const result = await supabase
         .from("bookings")
         .select("*")
-        .eq(
-          "tracking_number",
-          shipmentId
-        )
+        .eq("tracking_number", shipmentId)
         .maybeSingle();
 
       data = result.data;
@@ -188,15 +183,11 @@ export default function AdminShipmentPage() {
     }
 
     if (error) {
-      console.error(
-        "SHIPMENT ERROR:",
-        error
-      );
+      console.error("SHIPMENT ERROR:", error);
 
       alert(
         "Could not load shipment: " +
-          (error.message ||
-            "Unknown Supabase error")
+          (error.message || "Unknown Supabase error")
       );
 
       return;
@@ -209,29 +200,31 @@ export default function AdminShipmentPage() {
 
     setShipment(data);
 
+    /*
+     * IMPORTANT:
+     * All editable shipment fields are loaded here,
+     * including pickup_address and delivery_address.
+     */
     setForm({
       status: data.status || "Pending",
 
-      current_location:
-        data.current_location || "",
+      sender_name: data.sender_name || "",
+      receiver_name: data.receiver_name || "",
+      phone_number: data.phone_number || "",
 
-      next_location:
-        data.next_location || "",
+      pickup_address: data.pickup_address || "",
+      delivery_address: data.delivery_address || "",
 
-      estimated_delivery:
-        data.estimated_delivery || "",
+      current_location: data.current_location || "",
+      next_location: data.next_location || "",
 
-      delivery_issue:
-        data.delivery_issue || "",
+      estimated_delivery: data.estimated_delivery || "",
 
-      delivery_update:
-        data.delivery_update || "",
+      delivery_issue: data.delivery_issue || "",
+      delivery_update: data.delivery_update || "",
 
-      package_type:
-        data.package_type || "",
-
-      package_description:
-        data.package_description || "",
+      package_type: data.package_type || "",
+      package_description: data.package_description || "",
 
       package_weight:
         data.package_weight !== null &&
@@ -251,40 +244,29 @@ export default function AdminShipmentPage() {
           ? String(data.package_value)
           : "",
 
-      special_handling:
-        data.special_handling || "",
+      special_handling: data.special_handling || "",
     });
 
     setUpdateForm({
       status: data.status || "Pending",
-
-      location:
-        data.current_location || "",
-
+      location: data.current_location || "",
       message: "",
     });
 
     await loadShipmentUpdates(data.id);
   }
 
-  async function loadShipmentUpdates(
-    bookingId: number
-  ) {
-    const { data, error } =
-      await supabase
-        .from("shipment_updates")
-        .select("*")
-        .eq("booking_id", bookingId)
-        .order("created_at", {
-          ascending: false,
-        });
+  async function loadShipmentUpdates(bookingId: number) {
+    const { data, error } = await supabase
+      .from("shipment_updates")
+      .select("*")
+      .eq("booking_id", bookingId)
+      .order("created_at", {
+        ascending: false,
+      });
 
     if (error) {
-      console.error(
-        "SHIPMENT UPDATES ERROR:",
-        error
-      );
-
+      console.error("SHIPMENT UPDATES ERROR:", error);
       return;
     }
 
@@ -304,77 +286,83 @@ export default function AdminShipmentPage() {
 
     setSaving(true);
 
-    const newStatus =
-      form.status || "Pending";
+    const newStatus = form.status || "Pending";
 
-    const { data, error } =
-      await supabase
-        .from("bookings")
-        .update({
-          status: newStatus,
+    /*
+     * IMPORTANT:
+     * pickup_address and delivery_address are now
+     * included in the Supabase update.
+     */
+    const { data, error } = await supabase
+      .from("bookings")
+      .update({
+        status: newStatus,
 
-          current_location:
-            form.current_location.trim() ||
-            null,
+        sender_name:
+          form.sender_name.trim() || null,
 
-          next_location:
-            form.next_location.trim() ||
-            null,
+        receiver_name:
+          form.receiver_name.trim() || null,
 
-          estimated_delivery:
-            form.estimated_delivery.trim() ||
-            null,
+        phone_number:
+          form.phone_number.trim() || null,
 
-          delivery_issue:
-            form.delivery_issue.trim() ||
-            null,
+        pickup_address:
+          form.pickup_address.trim() || null,
 
-          delivery_update:
-            form.delivery_update.trim() ||
-            null,
+        delivery_address:
+          form.delivery_address.trim() || null,
 
-          package_type:
-            form.package_type.trim() ||
-            null,
+        current_location:
+          form.current_location.trim() || null,
 
-          package_description:
-            form.package_description.trim() ||
-            null,
+        next_location:
+          form.next_location.trim() || null,
 
-          package_weight:
-            form.package_weight.trim()
-              ? Number(form.package_weight)
-              : null,
+        estimated_delivery:
+          form.estimated_delivery.trim() || null,
 
-          package_quantity:
-            form.package_quantity.trim()
-              ? Number(form.package_quantity)
-              : null,
+        delivery_issue:
+          form.delivery_issue.trim() || null,
 
-          package_value:
-            form.package_value.trim()
-              ? Number(form.package_value)
-              : null,
+        delivery_update:
+          form.delivery_update.trim() || null,
 
-          special_handling:
-            form.special_handling.trim() ||
-            null,
+        package_type:
+          form.package_type.trim() || null,
 
-          last_updated:
-            new Date().toISOString(),
-        })
-        .eq("id", shipment.id)
-        .select()
-        .single();
+        package_description:
+          form.package_description.trim() || null,
+
+        package_weight:
+          form.package_weight.trim()
+            ? Number(form.package_weight)
+            : null,
+
+        package_quantity:
+          form.package_quantity.trim()
+            ? Number(form.package_quantity)
+            : null,
+
+        package_value:
+          form.package_value.trim()
+            ? Number(form.package_value)
+            : null,
+
+        special_handling:
+          form.special_handling.trim() || null,
+
+        last_updated: new Date().toISOString(),
+      })
+      .eq("id", shipment.id)
+      .select()
+      .single();
 
     if (error) {
-      console.error(
-        "SAVE SHIPMENT ERROR:",
-        error
-      );
+      console.error("SAVE SHIPMENT ERROR:", error);
 
       alert(
-        "Could not save shipment: " +
+        "Could not save shipment:\n\n" +
           error.message
       );
 
@@ -392,9 +380,7 @@ export default function AdminShipmentPage() {
         previous.location,
     }));
 
-    alert(
-      "Shipment saved successfully."
-    );
+    alert("Shipment saved successfully.");
 
     setSaving(false);
   }
@@ -403,39 +389,31 @@ export default function AdminShipmentPage() {
     if (!shipment) return;
 
     if (!updateForm.status) {
-      alert(
-        "Please select a tracking status."
-      );
+      alert("Please select a tracking status.");
       return;
     }
 
     if (!updateForm.message.trim()) {
-      alert(
-        "Please enter a tracking update message."
-      );
+      alert("Please enter a tracking update message.");
       return;
     }
 
     setAddingUpdate(true);
 
-    const { error } =
-      await supabase
-        .from("shipment_updates")
-        .insert({
-          booking_id: shipment.id,
+    const { error } = await supabase
+      .from("shipment_updates")
+      .insert({
+        booking_id: shipment.id,
 
-          status: updateForm.status,
+        status: updateForm.status,
 
-          location:
-            updateForm.location.trim() ||
-            null,
+        location:
+          updateForm.location.trim() || null,
 
-          message:
-            updateForm.message.trim(),
+        message: updateForm.message.trim(),
 
-          created_at:
-            new Date().toISOString(),
-        });
+        created_at: new Date().toISOString(),
+      });
 
     if (error) {
       console.error(
@@ -452,14 +430,6 @@ export default function AdminShipmentPage() {
       return;
     }
 
-    /*
-     * Also update the main shipment status
-     * and current location.
-     *
-     * This means selecting Confirmed here
-     * will also make the main shipment
-     * Confirmed.
-     */
     const {
       data: updatedShipment,
       error: shipmentError,
@@ -473,8 +443,7 @@ export default function AdminShipmentPage() {
           shipment.current_location ||
           null,
 
-        last_updated:
-          new Date().toISOString(),
+        last_updated: new Date().toISOString(),
       })
       .eq("id", shipment.id)
       .select()
@@ -496,8 +465,7 @@ export default function AdminShipmentPage() {
       setForm((previous) => ({
         ...previous,
 
-        status:
-          updateForm.status,
+        status: updateForm.status,
 
         current_location:
           updateForm.location ||
@@ -510,31 +478,24 @@ export default function AdminShipmentPage() {
       message: "",
     }));
 
-    await loadShipmentUpdates(
-      shipment.id
-    );
+    await loadShipmentUpdates(shipment.id);
 
-    alert(
-      "Tracking update added successfully."
-    );
+    alert("Tracking update added successfully.");
 
     setAddingUpdate(false);
   }
 
-  async function deleteTrackingUpdate(
-    updateId: number
-  ) {
+  async function deleteTrackingUpdate(updateId: number) {
     const confirmed = window.confirm(
       "Delete this tracking update?"
     );
 
     if (!confirmed) return;
 
-    const { error } =
-      await supabase
-        .from("shipment_updates")
-        .delete()
-        .eq("id", updateId);
+    const { error } = await supabase
+      .from("shipment_updates")
+      .delete()
+      .eq("id", updateId);
 
     if (error) {
       console.error(
@@ -552,15 +513,12 @@ export default function AdminShipmentPage() {
 
     setUpdates((previous) =>
       previous.filter(
-        (update) =>
-          update.id !== updateId
+        (update) => update.id !== updateId
       )
     );
   }
 
-  function statusStyle(
-    status: string
-  ) {
+  function statusStyle(status: string) {
     switch (status) {
       case "Delivered":
         return "bg-green-100 text-green-700";
@@ -586,9 +544,7 @@ export default function AdminShipmentPage() {
     }
   }
 
-  function statusIcon(
-    status: string
-  ) {
+  function statusIcon(status: string) {
     switch (status) {
       case "Delivered":
         return (
@@ -712,6 +668,7 @@ export default function AdminShipmentPage() {
             </div>
 
             <button
+              type="button"
               onClick={refreshShipment}
               disabled={refreshing}
               className="inline-flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 disabled:opacity-60 border border-white/10 px-6 py-3 rounded-xl font-black transition"
@@ -754,16 +711,15 @@ export default function AdminShipmentPage() {
 
             <div className="flex items-center gap-3">
               {statusIcon(
-                shipment.status
+                shipment.status || "Pending"
               )}
 
               <span
                 className={`px-5 py-2.5 rounded-full font-black ${statusStyle(
-                  shipment.status
+                  shipment.status || "Pending"
                 )}`}
               >
-                {shipment.status ||
-                  "Pending"}
+                {shipment.status || "Pending"}
               </span>
             </div>
           </div>
@@ -804,8 +760,7 @@ export default function AdminShipmentPage() {
                 onChange={(e) =>
                   setForm({
                     ...form,
-                    status:
-                      e.target.value,
+                    status: e.target.value,
                   })
                 }
                 className={inputClass()}
@@ -823,6 +778,69 @@ export default function AdminShipmentPage() {
               </select>
             </div>
 
+            {/* SENDER */}
+
+            <div>
+              <label className="block text-sm font-black text-slate-600 mb-2">
+                Sender Name
+              </label>
+
+              <input
+                value={form.sender_name}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    sender_name:
+                      e.target.value,
+                  })
+                }
+                placeholder="Sender name"
+                className={inputClass()}
+              />
+            </div>
+
+            {/* RECEIVER */}
+
+            <div>
+              <label className="block text-sm font-black text-slate-600 mb-2">
+                Receiver Name
+              </label>
+
+              <input
+                value={form.receiver_name}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    receiver_name:
+                      e.target.value,
+                  })
+                }
+                placeholder="Receiver name"
+                className={inputClass()}
+              />
+            </div>
+
+            {/* PHONE */}
+
+            <div>
+              <label className="block text-sm font-black text-slate-600 mb-2">
+                Phone Number
+              </label>
+
+              <input
+                value={form.phone_number}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    phone_number:
+                      e.target.value,
+                  })
+                }
+                placeholder="Phone number"
+                className={inputClass()}
+              />
+            </div>
+
             {/* CURRENT LOCATION */}
 
             <div>
@@ -831,9 +849,7 @@ export default function AdminShipmentPage() {
               </label>
 
               <input
-                value={
-                  form.current_location
-                }
+                value={form.current_location}
                 onChange={(e) =>
                   setForm({
                     ...form,
@@ -854,9 +870,7 @@ export default function AdminShipmentPage() {
               </label>
 
               <input
-                value={
-                  form.next_location
-                }
+                value={form.next_location}
                 onChange={(e) =>
                   setForm({
                     ...form,
@@ -877,9 +891,7 @@ export default function AdminShipmentPage() {
               </label>
 
               <input
-                value={
-                  form.estimated_delivery
-                }
+                value={form.estimated_delivery}
                 onChange={(e) =>
                   setForm({
                     ...form,
@@ -900,9 +912,7 @@ export default function AdminShipmentPage() {
               </label>
 
               <input
-                value={
-                  form.package_type
-                }
+                value={form.package_type}
                 onChange={(e) =>
                   setForm({
                     ...form,
@@ -924,9 +934,7 @@ export default function AdminShipmentPage() {
 
               <input
                 type="number"
-                value={
-                  form.package_weight
-                }
+                value={form.package_weight}
                 onChange={(e) =>
                   setForm({
                     ...form,
@@ -948,9 +956,7 @@ export default function AdminShipmentPage() {
 
               <input
                 type="number"
-                value={
-                  form.package_quantity
-                }
+                value={form.package_quantity}
                 onChange={(e) =>
                   setForm({
                     ...form,
@@ -972,9 +978,7 @@ export default function AdminShipmentPage() {
 
               <input
                 type="number"
-                value={
-                  form.package_value
-                }
+                value={form.package_value}
                 onChange={(e) =>
                   setForm({
                     ...form,
@@ -995,9 +999,7 @@ export default function AdminShipmentPage() {
               </label>
 
               <input
-                value={
-                  form.special_handling
-                }
+                value={form.special_handling}
                 onChange={(e) =>
                   setForm({
                     ...form,
@@ -1011,6 +1013,70 @@ export default function AdminShipmentPage() {
             </div>
           </div>
 
+          {/* ADDRESSES */}
+
+          <div className="grid md:grid-cols-2 gap-5 mt-5">
+            {/* PICKUP ADDRESS */}
+
+            <div>
+              <label className="flex items-center gap-2 text-sm font-black text-slate-600 mb-2">
+                <MapPin
+                  size={17}
+                  className="text-blue-600"
+                />
+                Pickup Address
+              </label>
+
+              <textarea
+                value={form.pickup_address}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    pickup_address:
+                      e.target.value,
+                  })
+                }
+                rows={4}
+                placeholder="Enter the pickup address"
+                className={inputClass()}
+              />
+
+              <p className="text-xs text-slate-400 mt-2">
+                This is the address where the shipment is collected.
+              </p>
+            </div>
+
+            {/* DELIVERY ADDRESS */}
+
+            <div>
+              <label className="flex items-center gap-2 text-sm font-black text-slate-600 mb-2">
+                <MapPin
+                  size={17}
+                  className="text-orange-600"
+                />
+                Delivery Address
+              </label>
+
+              <textarea
+                value={form.delivery_address}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    delivery_address:
+                      e.target.value,
+                  })
+                }
+                rows={4}
+                placeholder="Enter the delivery address"
+                className={inputClass()}
+              />
+
+              <p className="text-xs text-slate-400 mt-2">
+                This is the address where the shipment will be delivered.
+              </p>
+            </div>
+          </div>
+
           {/* DESCRIPTION */}
 
           <div className="mt-5">
@@ -1019,9 +1085,7 @@ export default function AdminShipmentPage() {
             </label>
 
             <textarea
-              value={
-                form.package_description
-              }
+              value={form.package_description}
               onChange={(e) =>
                 setForm({
                   ...form,
@@ -1044,9 +1108,7 @@ export default function AdminShipmentPage() {
               </label>
 
               <textarea
-                value={
-                  form.delivery_issue
-                }
+                value={form.delivery_issue}
                 onChange={(e) =>
                   setForm({
                     ...form,
@@ -1066,9 +1128,7 @@ export default function AdminShipmentPage() {
               </label>
 
               <textarea
-                value={
-                  form.delivery_update
-                }
+                value={form.delivery_update}
                 onChange={(e) =>
                   setForm({
                     ...form,
@@ -1086,6 +1146,7 @@ export default function AdminShipmentPage() {
           {/* SAVE */}
 
           <button
+            type="button"
             onClick={saveShipment}
             disabled={saving}
             className="mt-7 inline-flex items-center justify-center gap-2 bg-blue-900 hover:bg-blue-800 disabled:opacity-60 text-white px-7 py-3.5 rounded-xl font-black transition"
@@ -1129,14 +1190,11 @@ export default function AdminShipmentPage() {
               </label>
 
               <select
-                value={
-                  updateForm.status
-                }
+                value={updateForm.status}
                 onChange={(e) =>
                   setUpdateForm({
                     ...updateForm,
-                    status:
-                      e.target.value,
+                    status: e.target.value,
                   })
                 }
                 className={inputClass()}
@@ -1162,9 +1220,7 @@ export default function AdminShipmentPage() {
               </label>
 
               <input
-                value={
-                  updateForm.location
-                }
+                value={updateForm.location}
                 onChange={(e) =>
                   setUpdateForm({
                     ...updateForm,
@@ -1185,9 +1241,7 @@ export default function AdminShipmentPage() {
               </label>
 
               <input
-                value={
-                  updateForm.message
-                }
+                value={updateForm.message}
                 onChange={(e) =>
                   setUpdateForm({
                     ...updateForm,
@@ -1202,9 +1256,8 @@ export default function AdminShipmentPage() {
           </div>
 
           <button
-            onClick={
-              addTrackingUpdate
-            }
+            type="button"
+            onClick={addTrackingUpdate}
             disabled={addingUpdate}
             className="mt-6 inline-flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white px-7 py-3.5 rounded-xl font-black transition"
           >
@@ -1242,71 +1295,64 @@ export default function AdminShipmentPage() {
             </div>
           ) : (
             <div className="mt-7 space-y-4">
-              {updates.map(
-                (update) => (
-                  <div
-                    key={update.id}
-                    className="border border-slate-200 rounded-2xl p-5"
-                  >
-                    <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-                      <div className="flex gap-4">
-                        <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
-                          {statusIcon(
-                            update.status
-                          )}
-                        </div>
-
-                        <div>
-                          <span
-                            className={`inline-flex px-3 py-1.5 rounded-full text-sm font-black ${statusStyle(
-                              update.status
-                            )}`}
-                          >
-                            {update.status}
-                          </span>
-
-                          {update.location && (
-                            <p className="flex items-center gap-2 text-sm text-slate-500 mt-3">
-                              <MapPin
-                                size={16}
-                              />
-
-                              {update.location}
-                            </p>
-                          )}
-
-                          <p className="font-semibold text-slate-700 mt-3">
-                            {update.message}
-                          </p>
-
-                          <p className="text-xs text-slate-400 mt-3">
-                            {update.created_at
-                              ? new Date(
-                                  update.created_at
-                                ).toLocaleString()
-                              : "Unknown time"}
-                          </p>
-                        </div>
+              {updates.map((update) => (
+                <div
+                  key={update.id}
+                  className="border border-slate-200 rounded-2xl p-5"
+                >
+                  <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                    <div className="flex gap-4">
+                      <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
+                        {statusIcon(
+                          update.status
+                        )}
                       </div>
 
-                      <button
-                        onClick={() =>
-                          deleteTrackingUpdate(
-                            update.id
-                          )
-                        }
-                        className="inline-flex items-center justify-center gap-2 text-red-600 hover:text-red-700 font-black px-4 py-2 rounded-lg hover:bg-red-50 transition"
-                      >
-                        <Trash2
-                          size={17}
-                        />
+                      <div>
+                        <span
+                          className={`inline-flex px-3 py-1.5 rounded-full text-sm font-black ${statusStyle(
+                            update.status
+                          )}`}
+                        >
+                          {update.status}
+                        </span>
 
-                        Delete
-                      </button>
+                        {update.location && (
+                          <p className="flex items-center gap-2 text-sm text-slate-500 mt-3">
+                            <MapPin size={16} />
+                            {update.location}
+                          </p>
+                        )}
+
+                        <p className="font-semibold text-slate-700 mt-3">
+                          {update.message}
+                        </p>
+
+                        <p className="text-xs text-slate-400 mt-3">
+                          {update.created_at
+                            ? new Date(
+                                update.created_at
+                              ).toLocaleString()
+                            : "Unknown time"}
+                        </p>
+                      </div>
                     </div>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        deleteTrackingUpdate(
+                          update.id
+                        )
+                      }
+                      className="inline-flex items-center justify-center gap-2 text-red-600 hover:text-red-700 font-black px-4 py-2 rounded-lg hover:bg-red-50 transition"
+                    >
+                      <Trash2 size={17} />
+                      Delete
+                    </button>
                   </div>
-                )
-              )}
+                </div>
+              ))}
             </div>
           )}
         </div>
@@ -1316,7 +1362,7 @@ export default function AdminShipmentPage() {
         <div className="flex flex-col sm:flex-row gap-4 mt-7">
           <Link
             href={`/track?tracking=${encodeURIComponent(
-              shipment.tracking_number
+              shipment.tracking_number || ""
             )}`}
             className="flex-1 inline-flex items-center justify-center gap-2 bg-blue-900 hover:bg-blue-800 text-white px-6 py-4 rounded-xl font-black transition"
           >
