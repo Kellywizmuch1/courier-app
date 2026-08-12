@@ -48,7 +48,7 @@ type ShipmentUpdate = {
 };
 
 type PublicShipmentResponse = {
-  shipment: Booking;
+  shipment: Booking | null;
   history: ShipmentUpdate[];
 };
 
@@ -180,6 +180,9 @@ function TrackShipment() {
   const [searched, setSearched] =
     useState(false);
 
+  const [errorMessage, setErrorMessage] =
+    useState("");
+
   useEffect(() => {
     const tracking =
       searchParams.get("tracking");
@@ -204,6 +207,16 @@ function TrackShipment() {
     setSearched(true);
     setBooking(null);
     setUpdates([]);
+    setErrorMessage("");
+
+    console.log(
+      "===================================="
+    );
+
+    console.log(
+      "PUBLIC TRACKING SEARCH:",
+      cleanedTracking
+    );
 
     try {
       const { data, error } =
@@ -215,10 +228,25 @@ function TrackShipment() {
           }
         );
 
+      console.log(
+        "PUBLIC TRACKING RPC DATA:",
+        data
+      );
+
+      console.log(
+        "PUBLIC TRACKING RPC ERROR:",
+        error
+      );
+
       if (error) {
         console.error(
           "PUBLIC TRACKING ERROR:",
           error
+        );
+
+        setErrorMessage(
+          error.message ||
+            "Unable to load shipment."
         );
 
         return;
@@ -226,59 +254,79 @@ function TrackShipment() {
 
       if (!data) {
         console.log(
-          "PUBLIC TRACKING: No data returned"
+          "PUBLIC TRACKING: RPC returned no data."
         );
 
         return;
       }
 
       /*
-       * Supabase may return the JSON object directly
-       * or as an array containing the object.
+       * Handle both possible Supabase responses:
+       *
+       * Object:
+       * {
+       *   shipment: {...},
+       *   history: [...]
+       * }
+       *
+       * Array:
+       * [
+       *   {
+       *     shipment: {...},
+       *     history: [...]
+       *   }
+       * ]
        */
+
       const result =
         Array.isArray(data)
           ? data[0]
           : data;
 
+      console.log(
+        "PUBLIC TRACKING RESULT:",
+        result
+      );
+
       if (!result) {
         console.log(
-          "PUBLIC TRACKING: Empty result"
+          "PUBLIC TRACKING: Empty result."
         );
 
         return;
       }
-
-      /*
-       * Expected response:
-       *
-       * {
-       *   shipment: {...},
-       *   history: [...]
-       * }
-       */
 
       const response =
         result as PublicShipmentResponse;
 
+      console.log(
+        "PUBLIC TRACKING SHIPMENT:",
+        response.shipment
+      );
+
+      console.log(
+        "PUBLIC TRACKING HISTORY:",
+        response.history
+      );
+
       if (!response.shipment) {
         console.log(
-          "PUBLIC TRACKING: Shipment missing from response",
-          response
+          "PUBLIC TRACKING: shipment property is missing."
         );
 
         return;
       }
 
-      const shipment =
-        response.shipment;
+      setBooking(
+        response.shipment
+      );
 
       const history =
-        Array.isArray(response.history)
+        Array.isArray(
+          response.history
+        )
           ? response.history
           : [];
-
-      setBooking(shipment);
 
       const sortedHistory =
         [...history].sort(
@@ -301,15 +349,32 @@ function TrackShipment() {
           }
         );
 
-      setUpdates(sortedHistory);
+      setUpdates(
+        sortedHistory
+      );
+
+      console.log(
+        "PUBLIC TRACKING: Shipment loaded successfully."
+      );
 
     } catch (error) {
       console.error(
-        "TRACKING ERROR:",
+        "PUBLIC TRACKING EXCEPTION:",
         error
       );
+
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "An unexpected error occurred."
+      );
+
     } finally {
       setLoading(false);
+
+      console.log(
+        "===================================="
+      );
     }
   }
 
@@ -318,7 +383,9 @@ function TrackShipment() {
   ) {
     event.preventDefault();
 
-    loadShipment(trackingInput);
+    loadShipment(
+      trackingInput
+    );
   }
 
   return (
@@ -370,8 +437,7 @@ function TrackShipment() {
           </h1>
 
           <p className="text-sm sm:text-base text-slate-700 mt-2">
-            Enter your tracking number to view the
-            latest shipment information.
+            Enter your tracking number to view the latest shipment information.
           </p>
 
           <form
@@ -440,11 +506,37 @@ function TrackShipment() {
 
         )}
 
+        {/* RPC ERROR */}
+
+        {!loading &&
+          searched &&
+          errorMessage && (
+
+            <div className="bg-white border border-red-200 rounded-2xl p-8 text-center">
+
+              <AlertTriangle
+                size={36}
+                className="text-red-500 mx-auto"
+              />
+
+              <h2 className="text-xl font-black mt-4 text-slate-900">
+                Tracking Error
+              </h2>
+
+              <p className="text-sm text-red-700 mt-2 break-words">
+                {errorMessage}
+              </p>
+
+            </div>
+
+          )}
+
         {/* NOT FOUND */}
 
         {!loading &&
           searched &&
-          !booking && (
+          !booking &&
+          !errorMessage && (
 
             <div className="bg-white border border-slate-200 rounded-2xl p-8 text-center">
 
@@ -458,8 +550,7 @@ function TrackShipment() {
               </h2>
 
               <p className="text-sm text-slate-700 mt-2">
-                We could not find a shipment with
-                that tracking number.
+                We could not find a shipment with that tracking number.
               </p>
 
             </div>
@@ -609,7 +700,7 @@ function TrackShipment() {
 
             </div>
 
-            {/* TRACKING HISTORY */}
+            {/* HISTORY */}
 
             <div className="bg-white border border-slate-200 rounded-2xl">
 
@@ -795,7 +886,7 @@ function TrackShipment() {
 
             </div>
 
-            {/* PACKAGE INFORMATION */}
+            {/* PACKAGE */}
 
             <div className="bg-white border border-slate-200 rounded-2xl">
 
