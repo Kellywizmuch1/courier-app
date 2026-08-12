@@ -27,29 +27,22 @@ type BookingData = {
 export default function BookPage() {
   const router = useRouter();
 
-  const [senderName, setSenderName] = useState<string>("");
-  const [receiverName, setReceiverName] = useState<string>("");
-  const [pickup, setPickup] = useState<string>("");
-  const [destination, setDestination] = useState<string>("");
-  const [phoneNumber, setPhoneNumber] = useState<string>("");
+  const [senderName, setSenderName] = useState("");
+  const [receiverName, setReceiverName] = useState("");
+  const [pickup, setPickup] = useState("");
+  const [destination, setDestination] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
 
-  const [packageType, setPackageType] = useState<string>("");
-  const [packageDescription, setPackageDescription] =
-    useState<string>("");
-  const [packageWeight, setPackageWeight] =
-    useState<string>("");
-  const [packageQuantity, setPackageQuantity] =
-    useState<string>("1");
-  const [packageValue, setPackageValue] =
-    useState<string>("");
-  const [specialHandling, setSpecialHandling] =
-    useState<string>("");
+  const [packageType, setPackageType] = useState("");
+  const [packageDescription, setPackageDescription] = useState("");
+  const [packageWeight, setPackageWeight] = useState("");
+  const [packageQuantity, setPackageQuantity] = useState("1");
+  const [packageValue, setPackageValue] = useState("");
+  const [specialHandling, setSpecialHandling] = useState("");
 
-  const [loading, setLoading] = useState<boolean>(false);
-  const [checkingAuth, setCheckingAuth] =
-    useState<boolean>(true);
-  const [userEmail, setUserEmail] =
-    useState<string>("");
+  const [loading, setLoading] = useState(false);
+  const [checkingAuth, setCheckingAuth] = useState(true);
+  const [userEmail, setUserEmail] = useState("");
 
   useEffect(() => {
     void checkUser();
@@ -71,7 +64,7 @@ export default function BookPage() {
   }
 
   async function handleBooking(
-    event: React.FormEvent<HTMLFormElement>
+    event: React.FormEvent
   ): Promise<void> {
     event.preventDefault();
 
@@ -105,10 +98,8 @@ export default function BookPage() {
       return;
     }
 
-    if (!packageDescription.trim()) {
-      alert("Please describe the package.");
-      return;
-    }
+    // Package description is OPTIONAL.
+    // No validation is required here.
 
     if (!packageWeight.trim()) {
       alert("Please enter the package weight.");
@@ -117,6 +108,8 @@ export default function BookPage() {
 
     const weight = Number(packageWeight);
     const quantity = Number(packageQuantity);
+
+    // Package value is OPTIONAL.
     const value =
       packageValue.trim() === ""
         ? null
@@ -127,13 +120,8 @@ export default function BookPage() {
       return;
     }
 
-    if (
-      !Number.isInteger(quantity) ||
-      quantity < 1
-    ) {
-      alert(
-        "Number of packages must be at least 1."
-      );
+    if (!Number.isInteger(quantity) || quantity < 1) {
+      alert("Number of packages must be at least 1.");
       return;
     }
 
@@ -154,9 +142,11 @@ export default function BookPage() {
 
     if (sessionError || !session) {
       setLoading(false);
+
       alert(
         "Your session has expired. Please log in again."
       );
+
       router.push("/login");
       return;
     }
@@ -190,11 +180,17 @@ export default function BookPage() {
       phone_number: phoneNumber.trim(),
 
       package_type: packageType,
+
+      // Empty description is allowed.
       package_description:
         packageDescription.trim(),
+
       package_weight: weight,
       package_quantity: quantity,
+
+      // Empty package value becomes null.
       package_value: value,
+
       special_handling:
         specialHandling.trim() || null,
 
@@ -248,7 +244,7 @@ export default function BookPage() {
 
   if (checkingAuth) {
     return (
-      <main className="min-h-screen bg-slate-100 flex items-center justify-center">
+      <main className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto" />
 
@@ -261,10 +257,10 @@ export default function BookPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-100 text-slate-900">
-      <section className="bg-blue-950 text-white">
-        <div className="max-w-5xl mx-auto px-6 py-16">
-          <p className="text-orange-400 font-black uppercase tracking-widest text-sm">
+    <main className="min-h-screen bg-slate-50">
+      <section className="bg-slate-950 text-white py-16">
+        <div className="max-w-5xl mx-auto px-6">
+          <p className="text-orange-500 font-black uppercase tracking-wider text-sm">
             Atlas Express
           </p>
 
@@ -534,7 +530,10 @@ export default function BookPage() {
 
               <div>
                 <label className="block text-sm font-black text-slate-700 mb-2">
-                  Declared Package Value
+                  Declared Package Value{" "}
+                  <span className="text-slate-400 font-medium">
+                    (Optional)
+                  </span>
                 </label>
 
                 <input
@@ -555,7 +554,10 @@ export default function BookPage() {
 
             <div className="mt-6">
               <label className="block text-sm font-black text-slate-700 mb-2">
-                Package Description
+                Package Description{" "}
+                <span className="text-slate-400 font-medium">
+                  (Optional)
+                </span>
               </label>
 
               <textarea
@@ -566,7 +568,7 @@ export default function BookPage() {
                     event.target.value
                   )
                 }
-                placeholder="Describe what is inside the package..."
+                placeholder="Describe what is inside the package (optional)"
                 className="w-full border-2 border-slate-200 rounded-xl p-4 text-slate-900 resize-none focus:outline-none focus:border-orange-500"
               />
             </div>

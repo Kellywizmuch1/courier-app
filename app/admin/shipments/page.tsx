@@ -41,11 +41,10 @@ export default function AdminShipmentsPage() {
   const [refreshing, setRefreshing] = useState(false);
 
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] =
-    useState("All");
+  const [statusFilter, setStatusFilter] = useState("All");
 
   useEffect(() => {
-    checkAdmin();
+    void checkAdmin();
   }, []);
 
   async function checkAdmin() {
@@ -61,13 +60,9 @@ export default function AdminShipmentsPage() {
       return;
     }
 
-    const email =
-      session.user.email?.toLowerCase();
+    const email = session.user.email?.toLowerCase();
 
-    if (
-      email !==
-      "michealkellywiz@gmail.com"
-    ) {
+    if (email !== "michealkellywiz@gmail.com") {
       alert(
         "You do not have permission to access the admin dashboard."
       );
@@ -172,13 +167,10 @@ export default function AdminShipmentsPage() {
     bookings.filter(
       (booking) =>
         booking.status === "Delayed" ||
-        booking.status ===
-          "Delivery Issue"
+        booking.status === "Delivery Issue"
     ).length;
 
-  function statusStyle(
-    status: string
-  ) {
+  function statusStyle(status: string) {
     switch (status) {
       case "Delivered":
         return "bg-green-100 text-green-700";
@@ -189,26 +181,36 @@ export default function AdminShipmentsPage() {
       case "Picked Up":
         return "bg-blue-100 text-blue-700";
 
+      case "Confirmed":
+        return "bg-indigo-100 text-indigo-700";
+
       case "Delayed":
         return "bg-purple-100 text-purple-700";
 
       case "Delivery Issue":
         return "bg-red-100 text-red-700";
 
+      case "Pending":
       default:
         return "bg-yellow-100 text-yellow-700";
     }
   }
 
-  function statusIcon(
-    status: string
-  ) {
+  function statusIcon(status: string) {
     switch (status) {
       case "Delivered":
         return (
           <CheckCircle
             size={18}
             className="text-green-600"
+          />
+        );
+
+      case "Confirmed":
+        return (
+          <CheckCircle
+            size={18}
+            className="text-indigo-600"
           />
         );
 
@@ -230,6 +232,7 @@ export default function AdminShipmentsPage() {
           />
         );
 
+      case "Pending":
       default:
         return (
           <Clock
@@ -242,29 +245,24 @@ export default function AdminShipmentsPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-slate-100 flex items-center justify-center">
+      <main className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
-
           <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto" />
 
           <p className="mt-5 font-bold text-slate-700">
             Loading shipments...
           </p>
-
         </div>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-slate-100 text-slate-900">
-
+    <main className="min-h-screen bg-slate-50">
       {/* HEADER */}
 
       <header className="bg-blue-950 text-white">
-
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-
           <Link
             href="/admin"
             className="inline-flex items-center gap-2 text-blue-200 hover:text-white font-bold text-sm transition"
@@ -274,9 +272,7 @@ export default function AdminShipmentsPage() {
           </Link>
 
           <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-5 mt-6 sm:mt-7">
-
             <div>
-
               <p className="text-orange-400 font-black uppercase tracking-widest text-xs sm:text-sm">
                 Atlas Express
               </p>
@@ -288,7 +284,6 @@ export default function AdminShipmentsPage() {
               <p className="text-blue-200 mt-2 text-sm sm:text-base">
                 Search, filter and manage customer shipments.
               </p>
-
             </div>
 
             <button
@@ -296,7 +291,6 @@ export default function AdminShipmentsPage() {
               disabled={refreshing}
               className="inline-flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 disabled:opacity-60 border border-white/10 px-5 py-3 rounded-xl font-black transition"
             >
-
               <RefreshCw
                 size={18}
                 className={
@@ -309,32 +303,23 @@ export default function AdminShipmentsPage() {
               {refreshing
                 ? "Refreshing..."
                 : "Refresh Shipments"}
-
             </button>
-
           </div>
-
         </div>
-
       </header>
 
       {/* CONTENT */}
 
       <section className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
-
         {/* STATISTICS */}
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
-
           <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200 shadow-sm p-4 sm:p-6">
-
             <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-blue-100 flex items-center justify-center">
-
               <Package
                 size={22}
                 className="text-blue-800"
               />
-
             </div>
 
             <p className="text-xs sm:text-sm font-bold text-slate-500 mt-4">
@@ -344,18 +329,14 @@ export default function AdminShipmentsPage() {
             <p className="text-2xl sm:text-3xl font-black mt-1">
               {totalShipments}
             </p>
-
           </div>
 
           <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200 shadow-sm p-4 sm:p-6">
-
             <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-orange-100 flex items-center justify-center">
-
               <Truck
                 size={22}
                 className="text-orange-600"
               />
-
             </div>
 
             <p className="text-xs sm:text-sm font-bold text-slate-500 mt-4">
@@ -365,18 +346,14 @@ export default function AdminShipmentsPage() {
             <p className="text-2xl sm:text-3xl font-black mt-1">
               {activeShipments}
             </p>
-
           </div>
 
           <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200 shadow-sm p-4 sm:p-6">
-
             <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-green-100 flex items-center justify-center">
-
               <CheckCircle
                 size={22}
                 className="text-green-600"
               />
-
             </div>
 
             <p className="text-xs sm:text-sm font-bold text-slate-500 mt-4">
@@ -386,18 +363,14 @@ export default function AdminShipmentsPage() {
             <p className="text-2xl sm:text-3xl font-black mt-1">
               {deliveredShipments}
             </p>
-
           </div>
 
           <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200 shadow-sm p-4 sm:p-6">
-
             <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-red-100 flex items-center justify-center">
-
               <AlertTriangle
                 size={22}
                 className="text-red-600"
               />
-
             </div>
 
             <p className="text-xs sm:text-sm font-bold text-slate-500 mt-4">
@@ -407,19 +380,14 @@ export default function AdminShipmentsPage() {
             <p className="text-2xl sm:text-3xl font-black mt-1">
               {delayedShipments}
             </p>
-
           </div>
-
         </div>
 
         {/* SEARCH / FILTER */}
 
         <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200 shadow-sm p-4 sm:p-6 mt-6 sm:mt-8">
-
           <div className="flex flex-col lg:flex-row gap-3 sm:gap-4">
-
             <div className="relative flex-1">
-
               <Search
                 size={20}
                 className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
@@ -436,7 +404,6 @@ export default function AdminShipmentsPage() {
                 placeholder="Search tracking number, sender, receiver or address..."
                 className="w-full border-2 border-slate-200 rounded-xl py-3.5 sm:py-4 pl-12 pr-4 text-slate-900 font-semibold focus:outline-none focus:border-orange-500 text-sm sm:text-base"
               />
-
             </div>
 
             <select
@@ -448,13 +415,16 @@ export default function AdminShipmentsPage() {
               }
               className="lg:w-64 border-2 border-slate-200 rounded-xl px-4 py-3.5 sm:py-4 font-bold bg-white focus:outline-none focus:border-orange-500 text-sm sm:text-base"
             >
-
               <option value="All">
                 All Statuses
               </option>
 
               <option value="Pending">
                 Pending
+              </option>
+
+              <option value="Confirmed">
+                Confirmed
               </option>
 
               <option value="Picked Up">
@@ -476,46 +446,32 @@ export default function AdminShipmentsPage() {
               <option value="Delivered">
                 Delivered
               </option>
-
             </select>
-
           </div>
 
           <div className="mt-3 text-xs sm:text-sm text-slate-500">
-
             Showing{" "}
-
             <span className="font-black text-slate-900">
               {filteredBookings.length}
             </span>{" "}
-
             of{" "}
-
             <span className="font-black text-slate-900">
               {bookings.length}
             </span>{" "}
-
             shipments
-
           </div>
-
         </div>
 
         {/* SHIPMENTS */}
 
         <div className="mt-6 sm:mt-8">
-
           {filteredBookings.length === 0 ? (
-
             <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200 shadow-sm p-10 sm:p-12 text-center">
-
               <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto">
-
                 <Package
                   size={30}
                   className="text-slate-400"
                 />
-
               </div>
 
               <h2 className="text-xl sm:text-2xl font-black mt-5">
@@ -525,29 +481,20 @@ export default function AdminShipmentsPage() {
               <p className="text-slate-500 mt-2 text-sm">
                 Try changing your search or status filter.
               </p>
-
             </div>
-
           ) : (
-
             <div className="space-y-4 sm:space-y-5">
-
               {filteredBookings.map(
                 (booking) => (
-
                   <div
                     key={booking.id}
                     className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200 shadow-sm overflow-hidden"
                   >
-
                     {/* CARD HEADER */}
 
                     <div className="bg-slate-950 text-white p-5 sm:p-6">
-
                       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-
                         <div>
-
                           <p className="text-orange-400 text-[10px] sm:text-xs font-black uppercase tracking-widest">
                             Tracking Number
                           </p>
@@ -555,11 +502,9 @@ export default function AdminShipmentsPage() {
                           <h2 className="text-xl sm:text-2xl font-black mt-1 break-all">
                             {booking.tracking_number}
                           </h2>
-
                         </div>
 
                         <div className="flex items-center gap-3">
-
                           {statusIcon(
                             booking.status
                           )}
@@ -572,21 +517,15 @@ export default function AdminShipmentsPage() {
                             {booking.status ||
                               "Pending"}
                           </span>
-
                         </div>
-
                       </div>
-
                     </div>
 
                     {/* CARD BODY */}
 
                     <div className="p-4 sm:p-6">
-
                       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-
                         <div className="bg-slate-50 rounded-2xl p-4 sm:p-5">
-
                           <p className="text-[10px] sm:text-xs uppercase tracking-wider font-black text-slate-400">
                             Sender
                           </p>
@@ -595,11 +534,9 @@ export default function AdminShipmentsPage() {
                             {booking.sender_name ||
                               "Not provided"}
                           </p>
-
                         </div>
 
                         <div className="bg-slate-50 rounded-2xl p-4 sm:p-5">
-
                           <p className="text-[10px] sm:text-xs uppercase tracking-wider font-black text-slate-400">
                             Receiver
                           </p>
@@ -608,11 +545,9 @@ export default function AdminShipmentsPage() {
                             {booking.receiver_name ||
                               "Not provided"}
                           </p>
-
                         </div>
 
                         <div className="bg-orange-50 rounded-2xl p-4 sm:p-5">
-
                           <p className="text-[10px] sm:text-xs uppercase tracking-wider font-black text-orange-500">
                             Current Location
                           </p>
@@ -621,11 +556,9 @@ export default function AdminShipmentsPage() {
                             {booking.current_location ||
                               "Awaiting pickup"}
                           </p>
-
                         </div>
 
                         <div className="bg-blue-50 rounded-2xl p-4 sm:p-5">
-
                           <p className="text-[10px] sm:text-xs uppercase tracking-wider font-black text-blue-500">
                             Estimated Delivery
                           </p>
@@ -634,15 +567,11 @@ export default function AdminShipmentsPage() {
                             {booking.estimated_delivery ||
                               "Not available"}
                           </p>
-
                         </div>
-
                       </div>
 
                       <div className="grid md:grid-cols-2 gap-4 mt-4">
-
                         <div>
-
                           <p className="text-[10px] sm:text-xs uppercase tracking-wider font-black text-slate-400">
                             Pickup
                           </p>
@@ -651,11 +580,9 @@ export default function AdminShipmentsPage() {
                             {booking.pickup_address ||
                               "Not provided"}
                           </p>
-
                         </div>
 
                         <div>
-
                           <p className="text-[10px] sm:text-xs uppercase tracking-wider font-black text-slate-400">
                             Destination
                           </p>
@@ -664,15 +591,12 @@ export default function AdminShipmentsPage() {
                             {booking.delivery_address ||
                               "Not provided"}
                           </p>
-
                         </div>
-
                       </div>
 
                       {/* ACTION BUTTONS */}
 
                       <div className="flex flex-col sm:flex-row gap-3 mt-5 sm:mt-6">
-
                         <Link
                           href={`/track?tracking=${encodeURIComponent(
                             booking.tracking_number
@@ -688,34 +612,24 @@ export default function AdminShipmentsPage() {
                         >
                           Manage Shipment
                         </Link>
-
                       </div>
 
                       {booking.last_updated && (
                         <p className="text-[11px] sm:text-xs text-slate-400 mt-4 sm:mt-5">
                           Last updated:{" "}
-
                           {new Date(
                             booking.last_updated
                           ).toLocaleString()}
                         </p>
                       )}
-
                     </div>
-
                   </div>
-
                 )
               )}
-
             </div>
-
           )}
-
         </div>
-
       </section>
-
     </main>
   );
 }

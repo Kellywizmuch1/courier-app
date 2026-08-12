@@ -79,10 +79,7 @@ function isSuccessfulStatus(status: string | null) {
 function isProblemStatus(status: string | null) {
   const value = normalizeStatus(status);
 
-  return (
-    value === "delayed" ||
-    value === "delivery issue"
-  );
+  return value === "delayed" || value === "delivery issue";
 }
 
 function getStatusIcon(status: string | null) {
@@ -136,14 +133,12 @@ function getStatusIcon(status: string | null) {
   return (
     <Clock
       size={20}
-      className="text-slate-400"
+      className="text-slate-500"
     />
   );
 }
 
-function getStatusBadge(
-  status: string | null
-) {
+function getStatusBadge(status: string | null) {
   const value = normalizeStatus(status);
 
   if (value === "delivered") {
@@ -165,12 +160,10 @@ function getStatusBadge(
     return "bg-red-100 text-red-700";
   }
 
-  return "bg-slate-100 text-slate-600";
+  return "bg-slate-100 text-slate-700";
 }
 
-function getTimelineCircle(
-  status: string | null
-) {
+function getTimelineCircle(status: string | null) {
   if (isSuccessfulStatus(status)) {
     return "bg-green-100 border-green-200";
   }
@@ -362,7 +355,7 @@ function TrackShipment() {
             Track a Shipment
           </h1>
 
-          <p className="text-sm sm:text-base text-slate-500 mt-2">
+          <p className="text-sm sm:text-base text-slate-700 mt-2">
             Enter your tracking number to view the
             latest shipment information.
           </p>
@@ -378,7 +371,7 @@ function TrackShipment() {
 
                 <Search
                   size={19}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+                  className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"
                 />
 
                 <input
@@ -427,7 +420,7 @@ function TrackShipment() {
 
             <div className="w-9 h-9 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto" />
 
-            <p className="font-bold text-slate-600 mt-4">
+            <p className="font-bold text-slate-700 mt-4">
               Finding your shipment...
             </p>
 
@@ -448,11 +441,11 @@ function TrackShipment() {
                 className="text-red-500 mx-auto"
               />
 
-              <h2 className="text-xl font-black mt-4">
+              <h2 className="text-xl font-black mt-4 text-slate-900">
                 Shipment Not Found
               </h2>
 
-              <p className="text-sm text-slate-500 mt-2">
+              <p className="text-sm text-slate-700 mt-2">
                 We could not find a shipment with
                 that tracking number.
               </p>
@@ -479,7 +472,7 @@ function TrackShipment() {
 
                   <div>
 
-                    <p className="text-xs uppercase tracking-widest font-black text-slate-400">
+                    <p className="text-xs uppercase tracking-widest font-black text-slate-700">
                       Tracking Number
                     </p>
 
@@ -507,17 +500,17 @@ function TrackShipment() {
 
                   <div className="border border-slate-200 rounded-xl p-4">
 
-                    <div className="flex items-center gap-2 text-slate-400">
+                    <div className="flex items-center gap-2 text-slate-700">
 
                       <MapPin size={17} />
 
-                      <span className="text-xs font-black uppercase tracking-wide">
+                      <span className="text-xs font-black uppercase tracking-wide text-slate-700">
                         Current Location
                       </span>
 
                     </div>
 
-                    <p className="font-black text-sm mt-2">
+                    <p className="font-black text-sm text-slate-900 mt-2">
                       {booking.current_location ||
                         "Awaiting update"}
                     </p>
@@ -526,17 +519,17 @@ function TrackShipment() {
 
                   <div className="border border-slate-200 rounded-xl p-4">
 
-                    <div className="flex items-center gap-2 text-slate-400">
+                    <div className="flex items-center gap-2 text-slate-700">
 
                       <Truck size={17} />
 
-                      <span className="text-xs font-black uppercase tracking-wide">
+                      <span className="text-xs font-black uppercase tracking-wide text-slate-700">
                         Next Location
                       </span>
 
                     </div>
 
-                    <p className="font-black text-sm mt-2">
+                    <p className="font-black text-sm text-slate-900 mt-2">
                       {booking.next_location ||
                         "Not available"}
                     </p>
@@ -545,17 +538,17 @@ function TrackShipment() {
 
                   <div className="border border-slate-200 rounded-xl p-4">
 
-                    <div className="flex items-center gap-2 text-slate-400">
+                    <div className="flex items-center gap-2 text-slate-700">
 
                       <Calendar size={17} />
 
-                      <span className="text-xs font-black uppercase tracking-wide">
+                      <span className="text-xs font-black uppercase tracking-wide text-slate-700">
                         Estimated Delivery
                       </span>
 
                     </div>
 
-                    <p className="font-black text-sm mt-2">
+                    <p className="font-black text-sm text-slate-900 mt-2">
                       {booking.estimated_delivery ||
                         "Not available"}
                     </p>
@@ -582,7 +575,7 @@ function TrackShipment() {
 
                 <div className="bg-slate-50 rounded-xl p-4">
 
-                  <p className="text-xs uppercase tracking-widest font-black text-slate-400">
+                  <p className="text-xs uppercase tracking-widest font-black text-slate-700">
                     From
                   </p>
 
@@ -595,7 +588,7 @@ function TrackShipment() {
 
                 <div className="bg-slate-50 rounded-xl p-4">
 
-                  <p className="text-xs uppercase tracking-widest font-black text-slate-400">
+                  <p className="text-xs uppercase tracking-widest font-black text-slate-700">
                     To
                   </p>
 
@@ -622,7 +615,7 @@ function TrackShipment() {
                   Tracking History
                 </h2>
 
-                <p className="text-sm text-slate-500 mt-1">
+                <p className="text-sm text-slate-700 mt-1">
                   Shipment activity from latest to
                   oldest.
                 </p>
@@ -637,10 +630,10 @@ function TrackShipment() {
 
                     <Clock
                       size={32}
-                      className="text-slate-300 mx-auto"
+                      className="text-slate-500 mx-auto"
                     />
 
-                    <p className="font-bold text-slate-500 mt-3">
+                    <p className="font-bold text-slate-700 mt-3">
                       No tracking updates yet.
                     </p>
 
@@ -696,7 +689,7 @@ function TrackShipment() {
                                       ? "bg-green-300"
                                       : problem
                                       ? "bg-orange-200"
-                                      : "bg-slate-200"
+                                      : "bg-slate-300"
                                   }`}
                                 />
 
@@ -720,7 +713,7 @@ function TrackShipment() {
                                           ? "text-orange-700"
                                           : successful
                                           ? "text-slate-900"
-                                          : "text-slate-500"
+                                          : "text-slate-700"
                                       }`}
                                     >
                                       {update.status ||
@@ -749,7 +742,7 @@ function TrackShipment() {
 
                                 {update.created_at && (
 
-                                  <span className="text-xs text-slate-400 font-semibold whitespace-nowrap">
+                                  <span className="text-xs text-slate-600 font-semibold whitespace-nowrap">
 
                                     {new Date(
                                       update.created_at
@@ -763,7 +756,7 @@ function TrackShipment() {
 
                               {update.location && (
 
-                                <div className="flex items-center gap-2 mt-2 text-sm text-slate-500">
+                                <div className="flex items-center gap-2 mt-2 text-sm text-slate-700">
 
                                   <MapPin
                                     size={15}
@@ -783,7 +776,7 @@ function TrackShipment() {
                                   className={`text-sm mt-2 ${
                                     problem
                                       ? "text-orange-700 font-semibold"
-                                      : "text-slate-600"
+                                      : "text-slate-700"
                                   }`}
                                 >
                                   {update.message}
@@ -826,7 +819,7 @@ function TrackShipment() {
                     Package Information
                   </h2>
 
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-slate-700">
                     Shipment details
                   </p>
 
@@ -840,11 +833,11 @@ function TrackShipment() {
 
                   <div className="bg-slate-50 rounded-xl p-4">
 
-                    <p className="text-xs uppercase font-black text-slate-400">
+                    <p className="text-xs uppercase font-black text-slate-700">
                       Type
                     </p>
 
-                    <p className="font-black text-sm mt-2">
+                    <p className="font-black text-sm text-slate-900 mt-2">
                       {booking.package_type ||
                         "Not provided"}
                     </p>
@@ -853,11 +846,11 @@ function TrackShipment() {
 
                   <div className="bg-slate-50 rounded-xl p-4">
 
-                    <p className="text-xs uppercase font-black text-slate-400">
+                    <p className="text-xs uppercase font-black text-slate-700">
                       Quantity
                     </p>
 
-                    <p className="font-black text-sm mt-2">
+                    <p className="font-black text-sm text-slate-900 mt-2">
                       {booking.package_quantity ??
                         1}
                     </p>
@@ -866,11 +859,11 @@ function TrackShipment() {
 
                   <div className="bg-slate-50 rounded-xl p-4">
 
-                    <p className="text-xs uppercase font-black text-slate-400">
+                    <p className="text-xs uppercase font-black text-slate-700">
                       Weight
                     </p>
 
-                    <p className="font-black text-sm mt-2">
+                    <p className="font-black text-sm text-slate-900 mt-2">
 
                       {booking.package_weight !==
                         null &&
@@ -885,11 +878,11 @@ function TrackShipment() {
 
                   <div className="bg-slate-50 rounded-xl p-4">
 
-                    <p className="text-xs uppercase font-black text-slate-400">
+                    <p className="text-xs uppercase font-black text-slate-700">
                       Value
                     </p>
 
-                    <p className="font-black text-sm mt-2">
+                    <p className="font-black text-sm text-slate-900 mt-2">
 
                       {booking.package_value !==
                         null &&
@@ -908,11 +901,11 @@ function TrackShipment() {
 
                   <div className="mt-4">
 
-                    <p className="text-xs uppercase font-black text-slate-400">
+                    <p className="text-xs uppercase font-black text-slate-700">
                       Description
                     </p>
 
-                    <p className="text-sm text-slate-600 mt-2">
+                    <p className="text-sm text-slate-700 mt-2">
                       {booking.package_description}
                     </p>
 
@@ -924,11 +917,11 @@ function TrackShipment() {
 
                   <div className="mt-4 bg-orange-50 border border-orange-100 rounded-xl p-4">
 
-                    <p className="text-xs uppercase font-black text-orange-600">
+                    <p className="text-xs uppercase font-black text-orange-700">
                       Special Handling
                     </p>
 
-                    <p className="text-sm text-slate-700 font-semibold mt-2">
+                    <p className="text-sm text-slate-800 font-semibold mt-2">
                       {booking.special_handling}
                     </p>
 
@@ -946,7 +939,7 @@ function TrackShipment() {
 
             {booking.last_updated && (
 
-              <div className="text-center text-xs text-slate-400 pb-4">
+              <div className="text-center text-xs text-slate-600 pb-4">
 
                 Last updated:{" "}
 
@@ -980,7 +973,7 @@ function TrackPageLoading() {
 
         <div className="w-10 h-10 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto" />
 
-        <p className="font-bold text-slate-600 mt-4">
+        <p className="font-bold text-slate-700 mt-4">
           Loading tracking page...
         </p>
 
