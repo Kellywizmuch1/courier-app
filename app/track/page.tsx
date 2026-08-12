@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import {
   Package,
   Truck,
@@ -13,29 +14,22 @@ import {
   Search,
   ArrowLeft,
 } from "lucide-react";
-import Link from "next/link";
 
 import { supabase } from "../../lib/supabase";
 
 type Booking = {
   id: number;
   tracking_number: string | null;
-
   sender_name: string | null;
   receiver_name: string | null;
-
   pickup_address: string | null;
   delivery_address: string | null;
-
   status: string | null;
-
   current_location: string | null;
   next_location: string | null;
-
   estimated_delivery: string | null;
   last_updated: string | null;
   created_at: string | null;
-
   package_type: string | null;
   package_description: string | null;
   package_weight: number | null;
@@ -68,8 +62,8 @@ function isSuccessfulStatus(status: string | null) {
   return (
     value === "delivered" ||
     value === "picked up" ||
-    value === "in transit" ||
-    value === "confirmed"
+    value === "confirmed" ||
+    value === "in transit"
   );
 }
 
@@ -139,8 +133,8 @@ function getStatusBadge(status: string | null) {
   if (
     value === "delivered" ||
     value === "picked up" ||
-    value === "in transit" ||
-    value === "confirmed"
+    value === "confirmed" ||
+    value === "in transit"
   ) {
     return "bg-green-100 text-green-700";
   }
@@ -212,10 +206,6 @@ function TrackShipment() {
     setUpdates([]);
 
     try {
-      /*
-       * IMPORTANT:
-       * This MUST use get_public_shipment_v2.
-       */
       const { data, error } =
         await supabase.rpc(
           "get_public_shipment_v2",
@@ -235,46 +225,84 @@ function TrackShipment() {
       }
 
       if (!data) {
-        console.error(
-          "PUBLIC TRACKING ERROR: No data returned"
+        console.log(
+          "PUBLIC TRACKING: No data returned"
         );
 
         return;
       }
 
+      /*
+       * Supabase may return the JSON object directly
+       * or as an array containing the object.
+       */
       const result =
-        data as PublicShipmentResponse;
+        Array.isArray(data)
+          ? data[0]
+          : data;
 
-      if (!result.shipment) {
-        console.error(
-          "PUBLIC TRACKING ERROR: Shipment missing from response",
-          result
+      if (!result) {
+        console.log(
+          "PUBLIC TRACKING: Empty result"
         );
 
         return;
       }
 
-      setBooking(result.shipment);
+      /*
+       * Expected response:
+       *
+       * {
+       *   shipment: {...},
+       *   history: [...]
+       * }
+       */
 
-      const sortedHistory = [
-        ...(result.history || []),
-      ].sort((a, b) => {
-        const aTime = a.created_at
-          ? new Date(
+      const response =
+        result as PublicShipmentResponse;
+
+      if (!response.shipment) {
+        console.log(
+          "PUBLIC TRACKING: Shipment missing from response",
+          response
+        );
+
+        return;
+      }
+
+      const shipment =
+        response.shipment;
+
+      const history =
+        Array.isArray(response.history)
+          ? response.history
+          : [];
+
+      setBooking(shipment);
+
+      const sortedHistory =
+        [...history].sort(
+          (a, b) => {
+            const aTime =
               a.created_at
-            ).getTime()
-          : 0;
+                ? new Date(
+                    a.created_at
+                  ).getTime()
+                : 0;
 
-        const bTime = b.created_at
-          ? new Date(
+            const bTime =
               b.created_at
-            ).getTime()
-          : 0;
+                ? new Date(
+                    b.created_at
+                  ).getTime()
+                : 0;
 
-        return bTime - aTime;
-      });
+            return bTime - aTime;
+          }
+        );
 
       setUpdates(sortedHistory);
+
     } catch (error) {
       console.error(
         "TRACKING ERROR:",
@@ -299,6 +327,7 @@ function TrackShipment() {
       {/* HEADER */}
 
       <header className="bg-blue-950 text-white">
+
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-5">
 
           <div className="flex items-center justify-between">
@@ -327,6 +356,7 @@ function TrackShipment() {
           </div>
 
         </div>
+
       </header>
 
       {/* SEARCH */}
@@ -340,7 +370,8 @@ function TrackShipment() {
           </h1>
 
           <p className="text-sm sm:text-base text-slate-700 mt-2">
-            Enter your tracking number to view the latest shipment information.
+            Enter your tracking number to view the
+            latest shipment information.
           </p>
 
           <form
@@ -396,6 +427,7 @@ function TrackShipment() {
         {/* LOADING */}
 
         {loading && (
+
           <div className="bg-white border border-slate-200 rounded-2xl p-10 text-center">
 
             <div className="w-9 h-9 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto" />
@@ -405,6 +437,7 @@ function TrackShipment() {
             </p>
 
           </div>
+
         )}
 
         {/* NOT FOUND */}
@@ -425,7 +458,8 @@ function TrackShipment() {
               </h2>
 
               <p className="text-sm text-slate-700 mt-2">
-                We could not find a shipment with that tracking number.
+                We could not find a shipment with
+                that tracking number.
               </p>
 
             </div>
@@ -575,7 +609,7 @@ function TrackShipment() {
 
             </div>
 
-            {/* HISTORY */}
+            {/* TRACKING HISTORY */}
 
             <div className="bg-white border border-slate-200 rounded-2xl">
 
@@ -823,14 +857,12 @@ function TrackShipment() {
                     </p>
 
                     <p className="font-black text-sm text-slate-900 mt-2">
-
                       {booking.package_weight !==
                         null &&
                       booking.package_weight !==
                         undefined
                         ? `${booking.package_weight} kg`
                         : "Not provided"}
-
                     </p>
 
                   </div>
@@ -842,14 +874,12 @@ function TrackShipment() {
                     </p>
 
                     <p className="font-black text-sm text-slate-900 mt-2">
-
                       {booking.package_value !==
                         null &&
                       booking.package_value !==
                         undefined
                         ? `$${booking.package_value}`
                         : "Not provided"}
-
                     </p>
 
                   </div>
