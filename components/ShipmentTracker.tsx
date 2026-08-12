@@ -1,1061 +1,744 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import {
-  Search,
-  Package,
-  Truck,
-  MapPin,
-  Calendar,
-  Clock,
-  CheckCircle,
-  AlertTriangle,
-} from "lucide-react";
 import { supabase } from "../lib/supabase";
+import {
+  Package,
+  MapPin,
+  CalendarDays,
+  Truck,
+  Clock3,
+  CheckCircle2,
+  AlertTriangle,
+  Navigation,
+  Search,
+} from "lucide-react";
 
-type Booking = {
-  id: number;
-  tracking_number: string | null;
-
-  sender_name: string | null;
-  receiver_name: string | null;
-
-  pickup_address: string | null;
-  delivery_address: string | null;
-
-  status: string | null;
-
-  current_location: string | null;
-  next_location: string | null;
-
-  estimated_delivery: string | null;
-  last_updated: string | null;
-  created_at: string | null;
-
-  package_type: string | null;
-  package_description: string | null;
-  package_weight: number | null;
-  package_quantity: number | null;
-  package_value: number | null;
-  special_handling: string | null;
+type Shipment = {
+  tracking_number?: string | null;
+  receiver_name?: string | null;
+  pickup_address?: string | null;
+  delivery_address?: string | null;
+  status?: string | null;
+  current_location?: string | null;
+  next_location?: string | null;
+  estimated_delivery?: string | null;
+  last_updated?: string | null;
+  package_type?: string | null;
+  package_description?: string | null;
+  package_weight?: number | null;
+  package_quantity?: number | null;
+  package_value?: number | null;
+  special_handling?: string | null;
+  delivery_issue?: string | null;
+  delivery_update?: string | null;
 };
 
 type ShipmentUpdate = {
   id: number;
-  booking_id: number;
-  status: string | null;
-  location: string | null;
-  message: string | null;
-  created_at: string | null;
+  status?: string | null;
+  location?: string | null;
+  message?: string | null;
+  created_at?: string | null;
 };
 
 type PublicShipmentResponse = {
-  shipment: Booking;
+  shipment: Shipment;
   history: ShipmentUpdate[];
 };
 
-function normalizeStatus(status: string | null) {
-  return status?.trim().toLowerCase() || "";
-}
-
-function isSuccessfulStatus(status: string | null) {
-  const value = normalizeStatus(status);
-
-  return (
-    value === "delivered" ||
-    value === "picked up" ||
-    value === "in transit"
-  );
-}
-
-function isProblemStatus(status: string | null) {
-  const value = normalizeStatus(status);
-
-  return value === "delayed" || value === "delivery issue";
-}
-
-function getStatusIcon(status: string | null) {
-  const value = normalizeStatus(status);
-
-  if (value === "delivered") {
-    return (
-      <CheckCircle
-        size={18}
-        className="text-green-400"
-      />
-    );
-  }
-
-  if (value === "picked up") {
-    return (
-      <CheckCircle
-        size={18}
-        className="text-green-400"
-      />
-    );
-  }
-
-  if (value === "in transit") {
-    return (
-      <Truck
-        size={18}
-        className="text-orange-400"
-      />
-    );
-  }
-
-  if (value === "delayed") {
-    return (
-      <AlertTriangle
-        size={18}
-        className="text-orange-400"
-      />
-    );
-  }
-
-  if (value === "delivery issue") {
-    return (
-      <AlertTriangle
-        size={18}
-        className="text-red-400"
-      />
-    );
-  }
-
-  return (
-    <Clock
-      size={18}
-      className="text-slate-400"
-    />
-  );
-}
-
-function getStatusColor(status: string | null) {
-  const value = normalizeStatus(status);
-
-  if (value === "delivered") {
-    return "bg-green-500/15 border-green-400/20 text-green-300";
-  }
-
-  if (
-    value === "picked up" ||
-    value === "in transit"
-  ) {
-    return "bg-orange-500/15 border-orange-400/20 text-orange-300";
-  }
-
-  if (value === "delayed") {
-    return "bg-orange-500/15 border-orange-400/20 text-orange-300";
-  }
-
-  if (value === "delivery issue") {
-    return "bg-red-500/15 border-red-400/20 text-red-300";
-  }
-
-  return "bg-white/10 border-white/10 text-slate-300";
-}
-
-function getTimelineColor(status: string | null) {
-  if (isSuccessfulStatus(status)) {
-    return "bg-green-400";
-  }
-
-  if (isProblemStatus(status)) {
-    return "bg-orange-400";
-  }
-
-  return "bg-slate-500";
-}
-
 export default function ShipmentTracker() {
-  const [trackingInput, setTrackingInput] =
-    useState("");
+  const [trackingNumber, setTrackingNumber] = useState("");
+  const [result, setResult] =
+    useState<PublicShipmentResponse | null>(null);
 
-  const [booking, setBooking] =
-    useState<Booking | null>(null);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [searched, setSearched] = useState(false);
 
-  const [updates, setUpdates] =
-    useState<ShipmentUpdate[]>([]);
-
-  const [loading, setLoading] =
-    useState(false);
-
-  const [searched, setSearched] =
-    useState(false);
-
-  const [errorMessage, setErrorMessage] =
-    useState("");
-
-  async function loadShipment(
-    trackingNumber: string
+  async function handleTrack(
+    event: FormEvent<HTMLFormElement>
   ) {
-    const cleanedTracking =
+    event.preventDefault();
+
+    const tracking =
       trackingNumber.trim().toUpperCase();
 
-    if (!cleanedTracking) {
-      setErrorMessage(
-        "Please enter a tracking number."
-      );
-      setSearched(true);
+    if (!tracking) {
+      setError("Please enter a tracking number.");
       return;
     }
 
     setLoading(true);
     setSearched(true);
-    setBooking(null);
-    setUpdates([]);
-    setErrorMessage("");
+    setResult(null);
+    setError("");
 
     try {
-      const { data, error } =
-        await supabase.rpc(
-          "get_public_shipment",
-          {
-            tracking_number_input:
-              cleanedTracking,
-          }
-        );
-
-      if (error) {
-        console.error(
-          "PUBLIC TRACKING ERROR:",
-          error
-        );
-
-        setErrorMessage(
-          "Unable to find shipment."
-        );
-
-        return;
-      }
-
-      if (!data) {
-        setErrorMessage(
-          "Shipment not found."
-        );
-
-        return;
-      }
-
-      const result =
-        data as PublicShipmentResponse;
-
-      if (!result.shipment) {
-        setErrorMessage(
-          "Shipment not found."
-        );
-
-        return;
-      }
-
-      setBooking(result.shipment);
-
-      const sortedHistory = [
-        ...(result.history || []),
-      ].sort((a, b) => {
-        const first = a.created_at
-          ? new Date(
-              a.created_at
-            ).getTime()
-          : 0;
-
-        const second = b.created_at
-          ? new Date(
-              b.created_at
-            ).getTime()
-          : 0;
-
-        return second - first;
-      });
-
-      setUpdates(sortedHistory);
-    } catch (error) {
-      console.error(
-        "TRACKING ERROR:",
-        error
+      const response = await supabase.rpc(
+        "get_public_shipment_v2",
+        {
+          tracking_number_input: tracking,
+        }
       );
 
-      setErrorMessage(
-        "Something went wrong while tracking this shipment."
+      console.log(
+        "HOMEPAGE TRACKING RESPONSE:",
+        response
+      );
+
+      if (response.error) {
+        console.error(
+          "HOMEPAGE TRACKING ERROR:",
+          response.error
+        );
+
+        setError(
+          "We could not find a shipment with that tracking number."
+        );
+
+        return;
+      }
+
+      if (
+        response.data === null ||
+        response.data === undefined
+      ) {
+        setError(
+          "We could not find a shipment with that tracking number."
+        );
+
+        return;
+      }
+
+      let data: any = response.data;
+
+      if (Array.isArray(response.data)) {
+        if (response.data.length === 0) {
+          setError(
+            "We could not find a shipment with that tracking number."
+          );
+
+          return;
+        }
+
+        data = response.data[0];
+      }
+
+      if (!data?.shipment) {
+        setError(
+          "We could not find a shipment with that tracking number."
+        );
+
+        return;
+      }
+
+      setResult(
+        data as PublicShipmentResponse
+      );
+    } catch (err) {
+      console.error(
+        "HOMEPAGE TRACKING EXCEPTION:",
+        err
+      );
+
+      setError(
+        "Something went wrong while looking up your shipment."
       );
     } finally {
       setLoading(false);
     }
   }
 
-  function handleSearch(
-    event: FormEvent<HTMLFormElement>
-  ) {
-    event.preventDefault();
+  const shipment = result?.shipment;
 
-    loadShipment(trackingInput);
+  const history = Array.isArray(result?.history)
+    ? [...result.history].sort((a, b) => {
+        const aTime = a.created_at
+          ? new Date(a.created_at).getTime()
+          : 0;
+
+        const bTime = b.created_at
+          ? new Date(b.created_at).getTime()
+          : 0;
+
+        return bTime - aTime;
+      })
+    : [];
+
+  function normalizeStatus(
+    status?: string | null
+  ) {
+    return (
+      status
+        ?.trim()
+        .toLowerCase()
+        .replace(/\s+/g, " ") || ""
+    );
+  }
+
+  function isCompletedStatus(
+    status?: string | null
+  ) {
+    const value = normalizeStatus(status);
+
+    return (
+      value === "confirmed" ||
+      value === "picked up" ||
+      value === "in transit" ||
+      value === "delivered"
+    );
+  }
+
+  function isProblemStatus(
+    status?: string | null
+  ) {
+    const value = normalizeStatus(status);
+
+    return (
+      value === "delayed" ||
+      value === "delivery issue"
+    );
+  }
+
+  function statusClass(
+    status?: string | null
+  ) {
+    const value = normalizeStatus(status);
+
+    if (value === "delivered") {
+      return "bg-green-500/15 text-green-400 border-green-400/20";
+    }
+
+    if (
+      value === "confirmed" ||
+      value === "picked up"
+    ) {
+      return "bg-blue-500/15 text-blue-300 border-blue-400/20";
+    }
+
+    if (value === "in transit") {
+      return "bg-orange-500/15 text-orange-400 border-orange-400/20";
+    }
+
+    if (
+      value === "delayed" ||
+      value === "delivery issue"
+    ) {
+      return "bg-red-500/15 text-red-400 border-red-400/20";
+    }
+
+    return "bg-white/10 text-slate-300 border-white/10";
+  }
+
+  function historyIcon(
+    status?: string | null
+  ) {
+    const value = normalizeStatus(status);
+
+    if (
+      value === "confirmed" ||
+      value === "picked up" ||
+      value === "delivered"
+    ) {
+      return (
+        <CheckCircle2
+          size={19}
+          className="text-green-400"
+        />
+      );
+    }
+
+    if (value === "in transit") {
+      return (
+        <Truck
+          size={19}
+          className="text-orange-400"
+        />
+      );
+    }
+
+    if (
+      value === "delayed" ||
+      value === "delivery issue"
+    ) {
+      return (
+        <AlertTriangle
+          size={19}
+          className="text-red-400"
+        />
+      );
+    }
+
+    return (
+      <Clock3
+        size={19}
+        className="text-slate-400"
+      />
+    );
+  }
+
+  function historyCircle(
+    status?: string | null
+  ) {
+    const value = normalizeStatus(status);
+
+    if (
+      value === "confirmed" ||
+      value === "picked up" ||
+      value === "delivered"
+    ) {
+      return "bg-green-500/10 border-green-400/30";
+    }
+
+    if (value === "in transit") {
+      return "bg-orange-500/10 border-orange-400/30";
+    }
+
+    if (
+      value === "delayed" ||
+      value === "delivery issue"
+    ) {
+      return "bg-red-500/10 border-red-400/30";
+    }
+
+    return "bg-white/5 border-white/10";
   }
 
   return (
-    <div className="w-full text-white">
+    <div className="w-full max-w-3xl">
+      {/* TRACKING BOX */}
 
-      {/* =====================================================
-          TRACKING SEARCH
-      ===================================================== */}
-
-      <div className="mb-6">
-
-        <div className="flex items-center gap-3 mb-5">
-
-          <div className="w-11 h-11 rounded-xl bg-orange-500 flex items-center justify-center shadow-lg shadow-orange-500/20">
-
+      <div className="bg-white/10 backdrop-blur-xl border border-white/15 rounded-[2rem] p-6 md:p-7 shadow-2xl">
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 rounded-xl bg-orange-500 flex items-center justify-center shadow-lg">
             <Package
               size={22}
               className="text-white"
             />
-
           </div>
 
           <div>
-
-            <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">
-              Shipment Overview
+            <p className="text-orange-400 text-xs font-black uppercase tracking-widest">
+              Shipment Tracking
             </p>
 
-            <h2 className="text-2xl font-black text-white mt-1">
+            <h2 className="text-white text-2xl font-black">
               Track your delivery
             </h2>
-
           </div>
-
         </div>
 
+        <p className="text-slate-400 text-sm mt-3">
+          Enter your tracking number to see the
+          latest shipment information.
+        </p>
+
         <form
-          onSubmit={handleSearch}
-          className="flex flex-col sm:flex-row gap-3"
+          onSubmit={handleTrack}
+          className="flex flex-col sm:flex-row gap-3 mt-5"
         >
-
           <div className="relative flex-1">
-
             <Search
-              size={18}
-              className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+              size={19}
+              className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"
             />
 
             <input
               type="text"
-              value={trackingInput}
-              onChange={(event) =>
-                setTrackingInput(
+              value={trackingNumber}
+              onChange={(event) => {
+                setTrackingNumber(
                   event.target.value
-                )
-              }
+                );
+                setError("");
+              }}
               placeholder="Enter tracking number"
-              className="
-                w-full
-                rounded-xl
-                border
-                border-white/15
-                bg-white/10
-                backdrop-blur-md
-                py-3.5
-                pl-11
-                pr-4
-                text-white
-                placeholder:text-slate-400
-                font-semibold
-                outline-none
-                focus:border-orange-400
-                focus:ring-2
-                focus:ring-orange-500/20
-                transition
-              "
+              className="w-full h-14 rounded-xl bg-white text-slate-900 placeholder:text-slate-400 border border-white/20 px-5 pl-11 font-bold outline-none focus:ring-2 focus:ring-orange-500"
             />
-
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="
-              bg-orange-500
-              hover:bg-orange-600
-              disabled:opacity-60
-              disabled:cursor-not-allowed
-              text-white
-              px-7
-              py-3.5
-              rounded-xl
-              font-black
-              transition
-              shadow-lg
-              shadow-orange-500/20
-            "
+            className="h-14 px-7 rounded-xl bg-orange-500 hover:bg-orange-600 disabled:opacity-60 text-white font-black transition-all shadow-lg shadow-orange-500/20"
           >
             {loading
-              ? "Searching..."
-              : "Track"}
+              ? "Tracking..."
+              : "Track Shipment"}
           </button>
-
         </form>
 
-      </div>
+        {error && (
+          <div className="mt-4 bg-red-500/10 border border-red-400/20 rounded-xl p-4">
+            <div className="flex items-center gap-3">
+              <AlertTriangle
+                size={19}
+                className="text-red-400 shrink-0"
+              />
 
-      {/* =====================================================
-          ERROR
-      ===================================================== */}
-
-      {searched &&
-        errorMessage && (
-          <div
-            className="
-              mb-5
-              bg-red-500/10
-              border
-              border-red-400/20
-              text-red-300
-              rounded-xl
-              p-4
-              font-bold
-              text-sm
-            "
-          >
-            {errorMessage}
+              <p className="text-red-300 text-sm font-semibold">
+                {error}
+              </p>
+            </div>
           </div>
         )}
 
-      {/* =====================================================
-          LOADING
-      ===================================================== */}
+        {loading && (
+          <div className="mt-5 text-center py-5">
+            <div className="w-8 h-8 border-3 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto" />
 
-      {loading && (
-        <div
-          className="
-            bg-white/5
-            border
-            border-white/10
-            rounded-2xl
-            p-8
-            text-center
-          "
-        >
-
-          <div
-            className="
-              w-9
-              h-9
-              border-4
-              border-orange-500
-              border-t-transparent
-              rounded-full
-              animate-spin
-              mx-auto
-            "
-          />
-
-          <p className="text-slate-300 font-bold mt-4">
-            Finding your shipment...
-          </p>
-
-        </div>
-      )}
-
-      {/* =====================================================
-          SHIPMENT RESULT
-      ===================================================== */}
-
-      {!loading && booking && (
-        <div className="space-y-5">
-
-          {/* =================================================
-              HEADER
-          ================================================= */}
-
-          <div
-            className="
-              bg-white/5
-              border
-              border-white/10
-              rounded-2xl
-              p-5
-            "
-          >
-
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-
-              <div>
-
-                <p className="text-xs uppercase tracking-widest font-black text-slate-400">
-                  Tracking Number
-                </p>
-
-                <h2 className="text-xl sm:text-2xl font-black text-white mt-1">
-                  {booking.tracking_number ||
-                    "Unavailable"}
-                </h2>
-
-              </div>
-
-              <span
-                className={`
-                  inline-flex
-                  items-center
-                  gap-2
-                  w-fit
-                  px-3.5
-                  py-2
-                  rounded-full
-                  border
-                  text-xs
-                  font-black
-                  ${getStatusColor(
-                    booking.status
-                  )}
-                `}
-              >
-
-                {getStatusIcon(
-                  booking.status
-                )}
-
-                {booking.status ||
-                  "Pending"}
-
-              </span>
-
-            </div>
-
+            <p className="text-slate-400 text-sm font-semibold mt-3">
+              Finding your shipment...
+            </p>
           </div>
+        )}
+      </div>
 
-          {/* =================================================
-              LIVE SHIPMENT INFORMATION
-          ================================================= */}
+      {/* RESULTS */}
 
-          <div
-            className="
-              grid
-              grid-cols-1
-              sm:grid-cols-3
-              gap-3
-            "
-          >
+      {!loading && shipment && (
+        <div className="mt-6 space-y-5">
+          {/* SHIPMENT SUMMARY */}
 
-            <div
-              className="
-                bg-white/5
-                border
-                border-white/10
-                rounded-xl
-                p-4
-              "
-            >
-
-              <div className="flex items-center gap-2 text-slate-400">
-
-                <MapPin size={16} />
-
-                <span className="text-[10px] font-black uppercase tracking-wider">
-                  Current Location
-                </span>
-
-              </div>
-
-              <p className="font-black text-sm text-white mt-2">
-                {booking.current_location ||
-                  "Awaiting update"}
-              </p>
-
-            </div>
-
-            <div
-              className="
-                bg-white/5
-                border
-                border-white/10
-                rounded-xl
-                p-4
-              "
-            >
-
-              <div className="flex items-center gap-2 text-slate-400">
-
-                <Truck size={16} />
-
-                <span className="text-[10px] font-black uppercase tracking-wider">
-                  Next Location
-                </span>
-
-              </div>
-
-              <p className="font-black text-sm text-white mt-2">
-                {booking.next_location ||
-                  "Not available"}
-              </p>
-
-            </div>
-
-            <div
-              className="
-                bg-white/5
-                border
-                border-white/10
-                rounded-xl
-                p-4
-              "
-            >
-
-              <div className="flex items-center gap-2 text-slate-400">
-
-                <Calendar size={16} />
-
-                <span className="text-[10px] font-black uppercase tracking-wider">
-                  Estimated Delivery
-                </span>
-
-              </div>
-
-              <p className="font-black text-sm text-white mt-2">
-                {booking.estimated_delivery ||
-                  "Not available"}
-              </p>
-
-            </div>
-
-          </div>
-
-          {/* =================================================
-              ROUTE
-          ================================================= */}
-
-          <div
-            className="
-              bg-white/5
-              border
-              border-white/10
-              rounded-2xl
-              p-5
-            "
-          >
-
-            <h3 className="font-black text-white">
-              Shipment Route
-            </h3>
-
-            <div className="grid sm:grid-cols-2 gap-3 mt-4">
-
-              <div className="bg-black/10 rounded-xl p-4">
-
-                <p className="text-[10px] uppercase tracking-widest font-black text-slate-400">
-                  From
-                </p>
-
-                <p className="font-bold text-sm text-white mt-2">
-                  {booking.pickup_address ||
-                    "Not available"}
-                </p>
-
-              </div>
-
-              <div className="bg-black/10 rounded-xl p-4">
-
-                <p className="text-[10px] uppercase tracking-widest font-black text-slate-400">
-                  To
-                </p>
-
-                <p className="font-bold text-sm text-white mt-2">
-                  {booking.delivery_address ||
-                    "Not available"}
-                </p>
-
-              </div>
-
-            </div>
-
-          </div>
-
-          {/* =================================================
-              TRACKING HISTORY
-          ================================================= */}
-
-          <div
-            className="
-              bg-white/5
-              border
-              border-white/10
-              rounded-2xl
-              overflow-hidden
-            "
-          >
-
-            <div className="px-5 py-4 border-b border-white/10">
-
-              <h3 className="font-black text-white">
-                Tracking History
-              </h3>
-
-              <p className="text-xs text-slate-400 mt-1">
-                Latest shipment activity
-              </p>
-
-            </div>
-
-            <div className="p-5">
-
-              {updates.length === 0 ? (
-                <div className="py-5 text-center">
-
-                  <Clock
-                    size={28}
-                    className="text-slate-500 mx-auto"
-                  />
-
-                  <p className="text-sm font-bold text-slate-400 mt-3">
-                    No tracking updates yet.
+          <div className="bg-white rounded-[2rem] overflow-hidden shadow-2xl">
+            <div className="bg-slate-900 p-6">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                  <p className="text-orange-400 text-xs font-black uppercase tracking-widest">
+                    Tracking Number
                   </p>
 
+                  <h3 className="text-2xl md:text-3xl font-black text-white mt-1">
+                    {shipment.tracking_number ||
+                      trackingNumber}
+                  </h3>
+                </div>
+
+                <span
+                  className={`w-fit px-4 py-2 rounded-full border text-sm font-black ${statusClass(
+                    shipment.status
+                  )}`}
+                >
+                  {shipment.status ||
+                    "Pending"}
+                </span>
+              </div>
+            </div>
+
+            <div className="p-6">
+              <div className="grid sm:grid-cols-2 gap-3">
+                <ResultInfo
+                  icon={
+                    <MapPin
+                      size={17}
+                      className="text-orange-500"
+                    />
+                  }
+                  title="Current Location"
+                  value={
+                    shipment.current_location
+                  }
+                />
+
+                <ResultInfo
+                  icon={
+                    <Truck
+                      size={17}
+                      className="text-blue-600"
+                    />
+                  }
+                  title="Next Location"
+                  value={
+                    shipment.next_location
+                  }
+                />
+
+                <ResultInfo
+                  icon={
+                    <CalendarDays
+                      size={17}
+                      className="text-green-600"
+                    />
+                  }
+                  title="Estimated Delivery"
+                  value={
+                    shipment.estimated_delivery
+                  }
+                />
+
+                <ResultInfo
+                  icon={
+                    <Package
+                      size={17}
+                      className="text-purple-600"
+                    />
+                  }
+                  title="Package Type"
+                  value={
+                    shipment.package_type
+                  }
+                />
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-3 mt-3">
+                <div className="bg-slate-50 rounded-xl p-4">
+                  <p className="text-xs font-black uppercase tracking-wide text-slate-500">
+                    From
+                  </p>
+
+                  <p className="text-sm font-bold text-slate-900 mt-1">
+                    {shipment.pickup_address ||
+                      "Not available"}
+                  </p>
+                </div>
+
+                <div className="bg-slate-50 rounded-xl p-4">
+                  <p className="text-xs font-black uppercase tracking-wide text-slate-500">
+                    To
+                  </p>
+
+                  <p className="text-sm font-bold text-slate-900 mt-1">
+                    {shipment.delivery_address ||
+                      "Not available"}
+                  </p>
+                </div>
+              </div>
+
+              {(shipment.delivery_issue ||
+                shipment.delivery_update) && (
+                <div className="mt-4 bg-orange-50 border border-orange-200 rounded-xl p-4">
+                  <div className="flex gap-3">
+                    <AlertTriangle
+                      size={18}
+                      className="text-orange-600 shrink-0 mt-0.5"
+                    />
+
+                    <div>
+                      <p className="font-black text-orange-800">
+                        Delivery Update
+                      </p>
+
+                      <p className="text-sm text-orange-700 mt-1">
+                        {shipment.delivery_issue ||
+                          shipment.delivery_update}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* TRACKING HISTORY */}
+
+          <div className="bg-white rounded-[2rem] overflow-hidden shadow-2xl">
+            <div className="p-6 border-b border-slate-200">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
+                  <Truck
+                    size={20}
+                    className="text-blue-800"
+                  />
+                </div>
+
+                <div>
+                  <h3 className="text-xl font-black text-blue-950">
+                    Tracking History
+                  </h3>
+
+                  <p className="text-sm text-slate-500 mt-1">
+                    Latest shipment activity
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6">
+              {history.length === 0 ? (
+                <div className="py-5 text-center">
+                  <Clock3
+                    size={30}
+                    className="text-slate-400 mx-auto"
+                  />
+
+                  <p className="text-sm font-bold text-slate-500 mt-2">
+                    No tracking updates available yet.
+                  </p>
                 </div>
               ) : (
-                <div className="space-y-0">
-
-                  {updates.map(
+                <div>
+                  {history.map(
                     (update, index) => {
-
-                      const successful =
-                        isSuccessfulStatus(
-                          update.status
-                        );
+                      const isLast =
+                        index ===
+                        history.length - 1;
 
                       const problem =
                         isProblemStatus(
                           update.status
                         );
 
-                      const isLast =
-                        index ===
-                        updates.length - 1;
+                      const completed =
+                        isCompletedStatus(
+                          update.status
+                        );
 
                       return (
                         <div
                           key={update.id}
                           className="flex gap-4"
                         >
+                          {/* TIMELINE */}
 
                           <div className="flex flex-col items-center">
-
                             <div
-                              className={`
-                                w-9
-                                h-9
-                                rounded-full
-                                border
-                                border-white/10
-                                flex
-                                items-center
-                                justify-center
-                                shrink-0
-                                ${getTimelineColor(
-                                  update.status
-                                )}
-                              `}
-                            />
+                              className={`w-11 h-11 rounded-full border-2 flex items-center justify-center shrink-0 ${historyCircle(
+                                update.status
+                              )}`}
+                            >
+                              {historyIcon(
+                                update.status
+                              )}
+                            </div>
 
                             {!isLast && (
                               <div
-                                className={`
-                                  w-px
-                                  flex-1
-                                  min-h-10
-                                  ${
-                                    successful
-                                      ? "bg-green-400/40"
-                                      : problem
-                                      ? "bg-orange-400/40"
-                                      : "bg-white/10"
-                                  }
-                                `}
+                                className={`w-0.5 flex-1 min-h-14 ${
+                                  completed
+                                    ? "bg-green-200"
+                                    : "bg-slate-200"
+                                }`}
                               />
                             )}
-
                           </div>
 
-                          <div className="flex-1 pb-6">
+                          {/* EVENT */}
 
-                            <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
+                          <div className="flex-1 pb-7">
+                            <div className="flex flex-col sm:flex-row sm:justify-between gap-2">
+                              <div>
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <h4
+                                    className={`font-black text-lg ${
+                                      problem
+                                        ? "text-red-700"
+                                        : "text-slate-900"
+                                    }`}
+                                  >
+                                    {update.status ||
+                                      "Shipment Update"}
+                                  </h4>
 
-                              <div className="flex items-center gap-2">
+                                  {completed && (
+                                    <span className="inline-flex items-center gap-1 text-xs font-black text-green-700 bg-green-50 px-2 py-1 rounded-full">
+                                      <CheckCircle2
+                                        size={13}
+                                      />
+                                      Completed
+                                    </span>
+                                  )}
+                                </div>
 
-                                {getStatusIcon(
-                                  update.status
+                                {update.location && (
+                                  <div className="flex items-center gap-1.5 mt-1.5">
+                                    <MapPin
+                                      size={14}
+                                      className="text-blue-600"
+                                    />
+
+                                    <span className="text-sm text-blue-700 font-bold">
+                                      {update.location}
+                                    </span>
+                                  </div>
                                 )}
-
-                                <p className="font-black text-sm text-white">
-                                  {update.status ||
-                                    "Shipment Update"}
-                                </p>
-
                               </div>
 
                               {update.created_at && (
-                                <span className="text-[10px] text-slate-500 font-semibold">
+                                <span className="text-xs text-slate-400 font-semibold">
                                   {new Date(
                                     update.created_at
                                   ).toLocaleString()}
                                 </span>
                               )}
-
                             </div>
-
-                            {update.location && (
-                              <div className="flex items-center gap-2 mt-2">
-
-                                <MapPin
-                                  size={13}
-                                  className="text-slate-500"
-                                />
-
-                                <p className="text-xs text-slate-400 font-semibold">
-                                  {update.location}
-                                </p>
-
-                              </div>
-                            )}
 
                             {update.message && (
                               <p
-                                className={`
-                                  text-xs
-                                  mt-2
-                                  ${
-                                    problem
-                                      ? "text-orange-300"
-                                      : "text-slate-400"
-                                  }
-                                `}
+                                className={`text-sm mt-2 leading-6 ${
+                                  problem
+                                    ? "text-red-700 font-semibold"
+                                    : "text-slate-600"
+                                }`}
                               >
                                 {update.message}
                               </p>
                             )}
-
                           </div>
-
                         </div>
                       );
                     }
                   )}
-
                 </div>
               )}
-
             </div>
-
           </div>
 
-          {/* =================================================
-              PACKAGE INFORMATION
-          ================================================= */}
+          {/* LAST UPDATED */}
 
-          <div
-            className="
-              bg-white/5
-              border
-              border-white/10
-              rounded-2xl
-              p-5
-            "
-          >
-
-            <div className="flex items-center gap-3 mb-4">
-
-              <Package
-                size={19}
-                className="text-orange-400"
-              />
-
-              <div>
-
-                <h3 className="font-black text-white">
-                  Package Information
-                </h3>
-
-                <p className="text-[10px] text-slate-400">
-                  Shipment details
-                </p>
-
-              </div>
-
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-
-              <div className="bg-black/10 rounded-xl p-3">
-
-                <p className="text-[10px] uppercase font-black text-slate-500">
-                  Type
-                </p>
-
-                <p className="font-black text-xs text-white mt-1">
-                  {booking.package_type ||
-                    "Not provided"}
-                </p>
-
-              </div>
-
-              <div className="bg-black/10 rounded-xl p-3">
-
-                <p className="text-[10px] uppercase font-black text-slate-500">
-                  Quantity
-                </p>
-
-                <p className="font-black text-xs text-white mt-1">
-                  {booking.package_quantity ??
-                    1}
-                </p>
-
-              </div>
-
-              <div className="bg-black/10 rounded-xl p-3">
-
-                <p className="text-[10px] uppercase font-black text-slate-500">
-                  Weight
-                </p>
-
-                <p className="font-black text-xs text-white mt-1">
-                  {booking.package_weight !==
-                    null &&
-                  booking.package_weight !==
-                    undefined
-                    ? `${booking.package_weight} kg`
-                    : "Not provided"}
-                </p>
-
-              </div>
-
-              <div className="bg-black/10 rounded-xl p-3">
-
-                <p className="text-[10px] uppercase font-black text-slate-500">
-                  Value
-                </p>
-
-                <p className="font-black text-xs text-white mt-1">
-                  {booking.package_value !==
-                    null &&
-                  booking.package_value !==
-                    undefined
-                    ? `$${booking.package_value}`
-                    : "Not provided"}
-                </p>
-
-              </div>
-
-            </div>
-
-            {booking.package_description && (
-              <div className="mt-4">
-
-                <p className="text-[10px] uppercase font-black text-slate-500">
-                  Description
-                </p>
-
-                <p className="text-xs text-slate-400 mt-1">
-                  {booking.package_description}
-                </p>
-
-              </div>
-            )}
-
-            {booking.special_handling && (
-              <div
-                className="
-                  mt-4
-                  bg-orange-500/10
-                  border
-                  border-orange-400/20
-                  rounded-xl
-                  p-3
-                "
-              >
-
-                <p className="text-[10px] uppercase font-black text-orange-400">
-                  Special Handling
-                </p>
-
-                <p className="text-xs text-orange-100 font-semibold mt-1">
-                  {booking.special_handling}
-                </p>
-
-              </div>
-            )}
-
-          </div>
-
-          {/* =================================================
-              LAST UPDATED
-          ================================================= */}
-
-          {booking.last_updated && (
-            <div className="text-center text-[10px] text-slate-500 pb-2">
-
-              Last updated:{" "}
-
+          {shipment.last_updated && (
+            <p className="text-center text-xs text-slate-500 font-semibold">
+              Last updated{" "}
               {new Date(
-                booking.last_updated
+                shipment.last_updated
               ).toLocaleString()}
-
-            </div>
+            </p>
           )}
-
         </div>
       )}
 
-      {/* =====================================================
-          EMPTY STATE
-      ===================================================== */}
+      {/* EMPTY STATE */}
 
       {!loading &&
-        !booking &&
-        !errorMessage && (
-          <div
-            className="
-              mt-6
-              bg-white/5
-              border
-              border-white/10
-              rounded-2xl
-              p-8
-              text-center
-            "
-          >
-
-            <div
-              className="
-                w-14
-                h-14
-                rounded-2xl
-                bg-orange-500/10
-                border
-                border-orange-400/20
-                flex
-                items-center
-                justify-center
-                mx-auto
-              "
-            >
-
-              <Package
-                size={26}
-                className="text-orange-400"
-              />
-
-            </div>
-
-            <h3 className="font-black text-white mt-4">
-              Your delivery is moving.
-            </h3>
-
-            <p className="text-sm text-slate-400 mt-2 max-w-sm mx-auto">
-              Enter your tracking number above
-              to see the current shipment status,
-              location, route and delivery history.
+        searched &&
+        !result &&
+        !error && (
+          <div className="mt-5 bg-white/5 border border-white/10 rounded-2xl p-6 text-center">
+            <p className="text-slate-400 font-semibold">
+              Enter a tracking number to begin.
             </p>
-
           </div>
         )}
+    </div>
+  );
+}
 
+function ResultInfo({
+  title,
+  value,
+  icon,
+}: {
+  title: string;
+  value: any;
+  icon: React.ReactNode;
+}) {
+  return (
+    <div className="bg-slate-50 rounded-xl p-4">
+      <div className="flex items-center gap-2">
+        {icon}
+
+        <p className="text-xs uppercase tracking-wide font-black text-slate-500">
+          {title}
+        </p>
+      </div>
+
+      <p className="font-black text-slate-900 mt-2 break-words">
+        {value !== null &&
+        value !== undefined &&
+        String(value).trim() !== ""
+          ? String(value)
+          : "Not available"}
+      </p>
     </div>
   );
 }
