@@ -58,10 +58,6 @@ type PublicShipmentResponse = {
   history: ShipmentUpdate[];
 };
 
-/* =========================================================
-   STATUS HELPERS
-========================================================= */
-
 function normalizeStatus(status: string | null) {
   return status?.trim().toLowerCase() || "";
 }
@@ -72,29 +68,28 @@ function isSuccessfulStatus(status: string | null) {
   return (
     value === "delivered" ||
     value === "picked up" ||
-    value === "in transit"
+    value === "in transit" ||
+    value === "confirmed"
   );
 }
 
 function isProblemStatus(status: string | null) {
   const value = normalizeStatus(status);
 
-  return value === "delayed" || value === "delivery issue";
+  return (
+    value === "delayed" ||
+    value === "delivery issue"
+  );
 }
 
 function getStatusIcon(status: string | null) {
   const value = normalizeStatus(status);
 
-  if (value === "delivered") {
-    return (
-      <CheckCircle
-        size={20}
-        className="text-green-600"
-      />
-    );
-  }
-
-  if (value === "picked up") {
+  if (
+    value === "delivered" ||
+    value === "picked up" ||
+    value === "confirmed"
+  ) {
     return (
       <CheckCircle
         size={20}
@@ -141,13 +136,11 @@ function getStatusIcon(status: string | null) {
 function getStatusBadge(status: string | null) {
   const value = normalizeStatus(status);
 
-  if (value === "delivered") {
-    return "bg-green-100 text-green-700";
-  }
-
   if (
+    value === "delivered" ||
     value === "picked up" ||
-    value === "in transit"
+    value === "in transit" ||
+    value === "confirmed"
   ) {
     return "bg-green-100 text-green-700";
   }
@@ -175,10 +168,6 @@ function getTimelineCircle(status: string | null) {
   return "bg-white border-slate-300";
 }
 
-/* =========================================================
-   MAIN TRACKING COMPONENT
-========================================================= */
-
 function TrackShipment() {
   const searchParams = useSearchParams();
 
@@ -197,10 +186,6 @@ function TrackShipment() {
   const [searched, setSearched] =
     useState(false);
 
-  /* -------------------------------------------------------
-     LOAD TRACKING NUMBER FROM URL
-  ------------------------------------------------------- */
-
   useEffect(() => {
     const tracking =
       searchParams.get("tracking");
@@ -210,10 +195,6 @@ function TrackShipment() {
       loadShipment(tracking);
     }
   }, [searchParams]);
-
-  /* -------------------------------------------------------
-     LOAD SHIPMENT
-  ------------------------------------------------------- */
 
   async function loadShipment(
     trackingNumber: string
@@ -231,9 +212,13 @@ function TrackShipment() {
     setUpdates([]);
 
     try {
+      /*
+       * IMPORTANT:
+       * This MUST use get_public_shipment_v2.
+       */
       const { data, error } =
         await supabase.rpc(
-          "get_public_shipment",
+          "get_public_shipment_v2",
           {
             tracking_number_input:
               cleanedTracking,
@@ -250,11 +235,24 @@ function TrackShipment() {
       }
 
       if (!data) {
+        console.error(
+          "PUBLIC TRACKING ERROR: No data returned"
+        );
+
         return;
       }
 
       const result =
         data as PublicShipmentResponse;
+
+      if (!result.shipment) {
+        console.error(
+          "PUBLIC TRACKING ERROR: Shipment missing from response",
+          result
+        );
+
+        return;
+      }
 
       setBooking(result.shipment);
 
@@ -287,10 +285,6 @@ function TrackShipment() {
     }
   }
 
-  /* -------------------------------------------------------
-     SEARCH
-  ------------------------------------------------------- */
-
   function handleSearch(
     event: React.FormEvent
   ) {
@@ -299,19 +293,12 @@ function TrackShipment() {
     loadShipment(trackingInput);
   }
 
-  /* =======================================================
-     PAGE
-  ======================================================= */
-
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">
 
-      {/* ===================================================
-          HEADER
-      =================================================== */}
+      {/* HEADER */}
 
       <header className="bg-blue-950 text-white">
-
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-5">
 
           <div className="flex items-center justify-between">
@@ -340,12 +327,9 @@ function TrackShipment() {
           </div>
 
         </div>
-
       </header>
 
-      {/* ===================================================
-          SEARCH AREA
-      =================================================== */}
+      {/* SEARCH */}
 
       <section className="bg-white border-b border-slate-200">
 
@@ -356,8 +340,7 @@ function TrackShipment() {
           </h1>
 
           <p className="text-sm sm:text-base text-slate-700 mt-2">
-            Enter your tracking number to view the
-            latest shipment information.
+            Enter your tracking number to view the latest shipment information.
           </p>
 
           <form
@@ -406,16 +389,13 @@ function TrackShipment() {
 
       </section>
 
-      {/* ===================================================
-          RESULTS
-      =================================================== */}
+      {/* RESULTS */}
 
       <section className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
 
         {/* LOADING */}
 
         {loading && (
-
           <div className="bg-white border border-slate-200 rounded-2xl p-10 text-center">
 
             <div className="w-9 h-9 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto" />
@@ -425,7 +405,6 @@ function TrackShipment() {
             </p>
 
           </div>
-
         )}
 
         {/* NOT FOUND */}
@@ -446,8 +425,7 @@ function TrackShipment() {
               </h2>
 
               <p className="text-sm text-slate-700 mt-2">
-                We could not find a shipment with
-                that tracking number.
+                We could not find a shipment with that tracking number.
               </p>
 
             </div>
@@ -460,9 +438,7 @@ function TrackShipment() {
 
           <div className="space-y-5">
 
-            {/* =================================================
-                SHIPMENT SUMMARY
-            ================================================= */}
+            {/* SUMMARY */}
 
             <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
 
@@ -494,8 +470,6 @@ function TrackShipment() {
 
                 </div>
 
-                {/* CURRENT SHIPMENT INFORMATION */}
-
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-5">
 
                   <div className="border border-slate-200 rounded-xl p-4">
@@ -504,7 +478,7 @@ function TrackShipment() {
 
                       <MapPin size={17} />
 
-                      <span className="text-xs font-black uppercase tracking-wide text-slate-700">
+                      <span className="text-xs font-black uppercase tracking-wide">
                         Current Location
                       </span>
 
@@ -523,7 +497,7 @@ function TrackShipment() {
 
                       <Truck size={17} />
 
-                      <span className="text-xs font-black uppercase tracking-wide text-slate-700">
+                      <span className="text-xs font-black uppercase tracking-wide">
                         Next Location
                       </span>
 
@@ -542,7 +516,7 @@ function TrackShipment() {
 
                       <Calendar size={17} />
 
-                      <span className="text-xs font-black uppercase tracking-wide text-slate-700">
+                      <span className="text-xs font-black uppercase tracking-wide">
                         Estimated Delivery
                       </span>
 
@@ -561,9 +535,7 @@ function TrackShipment() {
 
             </div>
 
-            {/* =================================================
-                ROUTE
-            ================================================= */}
+            {/* ROUTE */}
 
             <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6">
 
@@ -592,7 +564,7 @@ function TrackShipment() {
                     To
                   </p>
 
-                  <p className="font-black text-slate-900 mt-2">
+                  <p className="font-black text-slate-900 mt-2 whitespace-pre-line">
                     {booking.delivery_address ||
                       "Not available"}
                   </p>
@@ -603,9 +575,7 @@ function TrackShipment() {
 
             </div>
 
-            {/* =================================================
-                TRACKING HISTORY
-            ================================================= */}
+            {/* HISTORY */}
 
             <div className="bg-white border border-slate-200 rounded-2xl">
 
@@ -616,8 +586,7 @@ function TrackShipment() {
                 </h2>
 
                 <p className="text-sm text-slate-700 mt-1">
-                  Shipment activity from latest to
-                  oldest.
+                  Shipment activity from latest to oldest.
                 </p>
 
               </div>
@@ -667,8 +636,6 @@ function TrackShipment() {
                             className="relative flex gap-4"
                           >
 
-                            {/* TIMELINE */}
-
                             <div className="flex flex-col items-center">
 
                               <div
@@ -696,8 +663,6 @@ function TrackShipment() {
                               )}
 
                             </div>
-
-                            {/* EVENT */}
 
                             <div className="flex-1 pb-7">
 
@@ -743,11 +708,9 @@ function TrackShipment() {
                                 {update.created_at && (
 
                                   <span className="text-xs text-slate-600 font-semibold whitespace-nowrap">
-
                                     {new Date(
                                       update.created_at
                                     ).toLocaleString()}
-
                                   </span>
 
                                 )}
@@ -758,9 +721,7 @@ function TrackShipment() {
 
                                 <div className="flex items-center gap-2 mt-2 text-sm text-slate-700">
 
-                                  <MapPin
-                                    size={15}
-                                  />
+                                  <MapPin size={15} />
 
                                   <span className="font-semibold">
                                     {update.location}
@@ -800,9 +761,7 @@ function TrackShipment() {
 
             </div>
 
-            {/* =================================================
-                PACKAGE INFORMATION
-            ================================================= */}
+            {/* PACKAGE INFORMATION */}
 
             <div className="bg-white border border-slate-200 rounded-2xl">
 
@@ -933,9 +892,7 @@ function TrackShipment() {
 
             </div>
 
-            {/* =================================================
-                LAST UPDATED
-            ================================================= */}
+            {/* LAST UPDATED */}
 
             {booking.last_updated && (
 
@@ -961,10 +918,6 @@ function TrackShipment() {
   );
 }
 
-/* =========================================================
-   LOADING
-========================================================= */
-
 function TrackPageLoading() {
   return (
     <main className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -982,10 +935,6 @@ function TrackPageLoading() {
     </main>
   );
 }
-
-/* =========================================================
-   PAGE EXPORT
-========================================================= */
 
 export default function TrackPage() {
   return (
